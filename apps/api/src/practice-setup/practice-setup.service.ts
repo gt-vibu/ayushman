@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, eq, isNull, sql } from '@ayushman-v2/db/drizzle';
+import { and, eq, isNull, or, sql } from '@ayushman-v2/db/drizzle';
 import type { Database } from '@ayushman-v2/db';
 import {
   locations, locationProfessions, practiceMembershipLocations, practiceMembershipRoles,
@@ -171,7 +171,10 @@ export class PracticeSetupService {
       .leftJoin(practiceMembershipRoles, eq(practiceMembershipRoles.membershipId, practiceMemberships.id))
       .leftJoin(practiceMembershipLocations, and(eq(practiceMembershipLocations.membershipId, practiceMemberships.id), locationId ? eq(practiceMembershipLocations.locationId, locationId) : sql`true`))
       .leftJoin(locations, eq(locations.id, practiceMembershipLocations.locationId))
-      .where(and(eq(practiceMemberships.practiceId, practiceId), eq(practiceMemberships.status, 'active'), locationId ? eq(practiceMembershipLocations.locationId, locationId) : sql`true`));
+      .where(and(
+        eq(practiceMemberships.practiceId, practiceId), eq(practiceMemberships.status, 'active'),
+        locationId ? or(eq(practiceMembershipRoles.role, 'owner'), eq(practiceMembershipLocations.locationId, locationId)) : sql`true`,
+      ));
     const profileRows = await this.db.select({
       userId: professionalProfiles.userId, professionId: professionalProfiles.practiceProfessionId,
       headline: professionalProfiles.headline, bio: professionalProfiles.bio,
