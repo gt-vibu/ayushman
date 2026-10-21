@@ -17,6 +17,7 @@ type ContextValue = {
   setBranchId: (id: string) => void;
   updatePractice: (next: Partial<Practice>) => void;
   refreshBranches: () => Promise<void>;
+  refreshProfessions: () => Promise<PracticeProfession[]>;
   logout: () => Promise<void>;
 };
 
@@ -113,6 +114,13 @@ export function PracticeProvider({ children }: Readonly<{ children: ReactNode }>
     if (!branchId && nextBranches[0]) setBranchId(nextBranches[0].id);
   }
 
+  const refreshProfessions = useCallback(async () => {
+    if (!practiceId) return [];
+    const nextProfessions = await api<PracticeProfession[]>(`/practices/${practiceId}/professions`);
+    setProfessions(nextProfessions);
+    return nextProfessions;
+  }, [practiceId]);
+
   async function logout() {
     await api('/auth/logout', { method: 'POST' }).catch(() => undefined);
     localStorage.removeItem(SAVED_PRACTICE);
@@ -123,8 +131,8 @@ export function PracticeProvider({ children }: Readonly<{ children: ReactNode }>
 
   const membershipList = session?.practices ?? [];
   const value = useMemo(() => session && practice ? {
-    session, practice, branches, professions, permissions, branchId, setBranchId, updatePractice, refreshBranches, logout,
-  } : null, [session, practice, branches, professions, permissions, branchId, updatePractice]);
+    session, practice, branches, professions, permissions, branchId, setBranchId, updatePractice, refreshBranches, refreshProfessions, logout,
+  } : null, [session, practice, branches, professions, permissions, branchId, updatePractice, refreshProfessions]);
 
   if (!shouldLoadWorkspace) return <PracticeContext.Provider value={null}>{children}</PracticeContext.Provider>;
   if (loading || (session && !practice && !error) || (practice && !permissionsReady)) return <div className="app-loading"><BrandLoader label="Loading your practice…"/></div>;
