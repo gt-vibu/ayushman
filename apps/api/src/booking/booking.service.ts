@@ -5,7 +5,7 @@ import type { Database } from '@ayushman-v2/db';
 import {
   appointments, appointmentNotifications, auditEvents, availabilityExceptions, availabilityRules, bookingPolicies, clients, customerProfiles,
   idempotencyKeys, locationProfessions, locations, practiceMembershipRoles, practiceMemberships, practiceProfessions,
-  practices, professionalLocations, professionalProfiles, serviceLocations,
+  practices, professionalProfiles, serviceLocations,
   serviceProfessionals, services, users,
 } from '@ayushman-v2/db/schema';
 import type { PublicAvailabilityQuery, PublicBookingHoldInput, PublicBookingInput, PublicDirectoryQuery } from '@ayushman-v2/contracts';
@@ -231,7 +231,6 @@ export class BookingService implements OnModuleInit, OnModuleDestroy {
       .innerJoin(practiceMemberships, and(eq(practiceMemberships.practiceId, practiceId), eq(practiceMemberships.userId, professionalProfiles.userId), eq(practiceMemberships.status, 'active')))
       .innerJoin(users, and(eq(users.id, professionalProfiles.userId), isNull(users.disabledAt)))
       .innerJoin(practiceMembershipRoles, and(eq(practiceMembershipRoles.membershipId, practiceMemberships.id), eq(practiceMembershipRoles.role, 'professional')))
-      .innerJoin(professionalLocations, and(eq(professionalLocations.practiceProfessionId, service.practiceProfessionId), eq(professionalLocations.userId, professionalProfiles.userId), eq(professionalLocations.locationId, location.id)))
       .where(and(eq(serviceProfessionals.serviceId, service.id), eq(serviceProfessionals.practiceId, practiceId), eq(serviceProfessionals.active, true), query.professionalUserId ? eq(professionalProfiles.userId, query.professionalUserId) : sql`true`));
     if (query.professionalUserId && !professionals.length) throw new NotFoundException('This professional is not eligible for the selected service and branch');
 
