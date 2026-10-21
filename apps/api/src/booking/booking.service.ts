@@ -235,6 +235,7 @@ export class BookingService implements OnModuleInit, OnModuleDestroy {
     if (query.professionalUserId && !professionals.length) throw new NotFoundException('This professional is not eligible for the selected service and branch');
 
     const rules = await this.db.select().from(availabilityRules).where(and(eq(availabilityRules.practiceId, practiceId), eq(availabilityRules.active, true)));
+    const hasConfiguredOperatingHours = rules.some((rule) => rule.scope === 'location' || rule.scope === 'practice');
     const exceptions = await this.db.select().from(availabilityExceptions).where(and(
       eq(availabilityExceptions.practiceId, practiceId), gte(availabilityExceptions.date, query.from), lte(availabilityExceptions.date, query.to),
       or(eq(availabilityExceptions.locationId, location.id), ...professionals.map((person) => eq(availabilityExceptions.professionalUserId, person.id))),
@@ -254,7 +255,13 @@ export class BookingService implements OnModuleInit, OnModuleDestroy {
         const specificProfessional = this.windowsFor(rules, 'professional_location', person.id, weekday, practiceId, location.id, service.practiceProfessionId);
         const generalProfessional = this.windowsFor(rules, 'professional', person.id, weekday, practiceId, undefined, service.practiceProfessionId);
         const chosenProfessional = specificProfessional.length ? specificProfessional : generalProfessional;
-        let branchHours = chosenBranch;
+        // A practice can go live with only professional schedules. Until branch or
+        // practice operating hours are configured, the practitioner's schedule is
+        // the booking window; an empty, unconfigured location schedule must not
+        // make every customer slot disappear.
+        let branchHours = chosenBranch.length || hasConfiguredOperatingHours
+          ? chosenBranch
+          : [{ startMinute: 0, endMinute: 1440, slotIntervalMinutes: 30 }];
         let professionalHours = chosenProfessional;
         const branchClosures = dayExceptions.filter((item) => item.locationId === location.id && item.professionalUserId === null && item.kind === 'closed');
         const proClosures = dayExceptions.filter((item) => item.professionalUserId === person.id && item.practiceProfessionId === service.practiceProfessionId && (!item.locationId || item.locationId === location.id) && item.kind === 'closed');
