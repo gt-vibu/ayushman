@@ -10,6 +10,13 @@
       "framework": "nextjs"
     }
   },
+  "redirects": [
+    {
+      "source": "/book/:practiceId",
+      "destination": "/book?practiceId=:practiceId",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
