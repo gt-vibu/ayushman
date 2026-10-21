@@ -1,10 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "services": {
-    "api": {
-      "root": "apps/api",
-      "framework": "nestjs"
-    },
     "web": {
       "root": "apps/web",
       "framework": "nextjs"
@@ -17,9 +13,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": {
-        "service": "api"
-      }
+      "destination": "https://ayushman-api.onrender.com/api/$1"
     },
     {
       "source": "/platform",
