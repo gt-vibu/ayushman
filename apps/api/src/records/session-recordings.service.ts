@@ -269,7 +269,10 @@ export class SessionRecordingsService implements OnModuleInit, OnModuleDestroy {
     const [recording] = await this.db.select().from(sessionRecordings).where(and(eq(sessionRecordings.id, recordingId), eq(sessionRecordings.practiceId, practiceId), isNull(sessionRecordings.deletedAt))).limit(1);
     if (!recording) throw new NotFoundException('Recording session not found');
     await this.authorizedAppointment(userId, practiceId, recording.appointmentId);
-    if (!['recording', 'stop_requested'].includes(recording.status)) throw new ConflictException('The recording is no longer accepting segments');
+    // The first accepted segment moves the session from `recording` to
+    // `uploading`. Continue accepting later (and retried) segments in that state
+    // until complete() atomically finalizes the assembled audio.
+    if (!['recording', 'uploading', 'stop_requested'].includes(recording.status)) throw new ConflictException('The recording is no longer accepting segments');
     const storageKey = randomUUID();
     const path = join(this.directory, storageKey);
     try {
