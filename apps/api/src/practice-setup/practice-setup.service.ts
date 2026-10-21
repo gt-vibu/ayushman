@@ -50,7 +50,10 @@ export class PracticeSetupService {
   }
 
   async addProfession(userId: string, practiceId: string, input: PracticeProfessionInput) {
-    await this.authorization.assertPermission({ userId, practiceId, permissionCode: 'practice.update' });
+    const practiceUpdateCheck = { userId, practiceId, permissionCode: 'practice.update' } as const;
+    if (!(await this.authorization.hasPermission(practiceUpdateCheck))) {
+      await this.authorization.assertPermission({ userId, practiceId, permissionCode: 'services.manage' });
+    }
     try {
       const [profession] = await this.db.insert(practiceProfessions).values({
         practiceId, professionCode: input.professionCode, name: input.name, termOverrides: input.termOverrides,
@@ -110,7 +113,10 @@ export class PracticeSetupService {
   }
 
   async enableProfessionAtLocation(userId: string, practiceId: string, locationId: string, input: LocationProfessionInput) {
-    await this.authorization.assertPermission({ userId, practiceId, permissionCode: 'locations.manage', locationId });
+    const locationManageCheck = { userId, practiceId, permissionCode: 'locations.manage', locationId } as const;
+    if (!(await this.authorization.hasPermission(locationManageCheck))) {
+      await this.authorization.assertPermission({ userId, practiceId, permissionCode: 'services.manage', locationId });
+    }
     await this.assertLocation(practiceId, locationId);
     await this.assertProfession(practiceId, input.practiceProfessionId);
     const [row] = await this.db.insert(locationProfessions).values({
