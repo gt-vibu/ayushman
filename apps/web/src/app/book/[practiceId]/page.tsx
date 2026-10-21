@@ -1,9 +1,6 @@
-"use client";
+import { redirect } from 'next/navigation';
 
-import { useParams } from 'next/navigation';
-import { PublicBookingFlow } from '@/components/public-booking-flow';
-
-export default function PracticeBookingPage() {
-  const params = useParams<{ practiceId: string }>();
-  return <PublicBookingFlow practiceId={params.practiceId}/>;
+export default async function LegacyPracticeBookingRoute({ params }: { params: Promise<{ practiceId: string }> }) {
+  const { practiceId } = await params;
+  redirect(`/book?practiceId=${encodeURIComponent(practiceId)}`);
 }

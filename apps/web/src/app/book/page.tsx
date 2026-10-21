@@ -6,10 +6,16 @@ import { ArrowRight, BriefcaseBusiness, Clock3, Search, UserRound } from 'lucide
 import { api } from '@/lib/api';
 import { CustomerSessionLink } from '@/components/customer-session-link';
 import { CustomerAccountView } from '@/components/customer-account-view';
+import { PublicBookingFlow } from '@/components/public-booking-flow';
+import { BrandLoader } from '@/components/ui/branded-loader';
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 
 type PracticeResult = { id: string; name: string; slug: string; description: string | null; timezone: string; services: Array<{ id: string; name: string; durationMinutes: number; priceMinor: number | null; currency: string }> };
 
-export default function BookDiscoveryPage() {
+function BookDiscoveryContent() {
+  const searchParams = useSearchParams();
+  const practiceId = searchParams.get('practiceId');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<PracticeResult[]>([]);
   const [busy, setBusy] = useState(false);
@@ -19,12 +25,13 @@ export default function BookDiscoveryPage() {
   const [accountSection, setAccountSection] = useState<'home' | 'appointments' | 'records' | 'billing' | 'profile' | 'settings' | null>(null);
 
   useEffect(() => {
+    if (practiceId) return;
     const requestedSection = new URLSearchParams(window.location.search).get('section');
     if (['home', 'appointments', 'records', 'billing', 'profile', 'settings'].includes(requestedSection ?? '')) {
       setAccountSection(requestedSection as 'home' | 'appointments' | 'records' | 'billing' | 'profile' | 'settings');
     }
     void search('', true);
-  }, []);
+  }, [practiceId]);
 
   function showExplore() {
     setAccountSection(null);
@@ -45,6 +52,7 @@ export default function BookDiscoveryPage() {
     void api(`/public/practices/${practiceId}`).catch(() => undefined);
   }
 
+  if (practiceId) return <PublicBookingFlow practiceId={practiceId}/>;
   if (accountSection) return <CustomerAccountView initialSection={accountSection} onExploreClick={showExplore} />;
 
   return <main className="booking-discovery">
@@ -54,8 +62,12 @@ export default function BookDiscoveryPage() {
       {error && <p className="form-error" role="alert">{error}</p>}
     </section>
     {searched && <section className="booking-results"><div className="booking-results-heading"><div><p className="eyebrow">{query.trim() ? 'MATCHING PRACTICES' : 'BOOK A SERVICE'}</p><h2>{query.trim() ? results.length ? 'Choose where to begin' : 'No matches yet' : 'Available near you'}</h2></div><span>{busy || initialLoading ? 'Loading…' : `${results.length} ${results.length === 1 ? 'practice' : 'practices'}`}</span></div>
-      {results.length ? <div className="booking-practice-grid">{results.map((practice) => <article className="booking-practice-card" key={practice.id}><span className="booking-card-icon"><BriefcaseBusiness size={19}/></span><h3>{practice.name}</h3><p>{practice.description || 'Explore available professionals and services at this practice.'}</p><small><UserRound size={14}/>{practice.timezone}</small><div className="booking-service-preview"><strong>Bookable services</strong>{practice.services.length ? practice.services.slice(0, 3).map((service) => <div className="booking-service-preview-row" key={service.id}><span>{service.name}<small><Clock3 size={12}/>{service.durationMinutes} min</small></span><b>{service.priceMinor === null ? 'Price on request' : new Intl.NumberFormat(undefined, { style: 'currency', currency: service.currency, maximumFractionDigits: 0 }).format(service.priceMinor / 100)}</b></div>) : <p className="booking-no-services">No online services are available yet.</p>}</div><Link href={`/book/${practice.id}`} className="button button-secondary" onPointerEnter={() => prefetchPractice(practice.id)} onFocus={() => prefetchPractice(practice.id)} onTouchStart={() => prefetchPractice(practice.id)}>{practice.services.length ? 'Choose a service' : 'View practice'} <ArrowRight size={15}/></Link></article>)}</div> : !busy && !initialLoading && <p className="booking-empty">{query.trim() ? 'Try a different name or search for a service or professional.' : 'There are no practices listed for online booking yet. Please check back soon.'}</p>}
+      {results.length ? <div className="booking-practice-grid">{results.map((practice) => <article className="booking-practice-card" key={practice.id}><span className="booking-card-icon"><BriefcaseBusiness size={19}/></span><h3>{practice.name}</h3><p>{practice.description || 'Explore available professionals and services at this practice.'}</p><small><UserRound size={14}/>{practice.timezone}</small><div className="booking-service-preview"><strong>Bookable services</strong>{practice.services.length ? practice.services.slice(0, 3).map((service) => <div className="booking-service-preview-row" key={service.id}><span>{service.name}<small><Clock3 size={12}/>{service.durationMinutes} min</small></span><b>{service.priceMinor === null ? 'Price on request' : new Intl.NumberFormat(undefined, { style: 'currency', currency: service.currency, maximumFractionDigits: 0 }).format(service.priceMinor / 100)}</b></div>) : <p className="booking-no-services">No online services are available yet.</p>}</div><Link href={`/book?practiceId=${encodeURIComponent(practice.id)}`} className="button button-secondary" onPointerEnter={() => prefetchPractice(practice.id)} onFocus={() => prefetchPractice(practice.id)} onTouchStart={() => prefetchPractice(practice.id)}>{practice.services.length ? 'Choose a service' : 'View practice'} <ArrowRight size={15}/></Link></article>)}</div> : !busy && !initialLoading && <p className="booking-empty">{query.trim() ? 'Try a different name or search for a service or professional.' : 'There are no practices listed for online booking yet. Please check back soon.'}</p>}
     </section>}
     <footer className="booking-footer"><CustomerSessionLink variant="footer" activeSection="explore" onExploreClick={showExplore} onSectionSelect={(section) => setAccountSection(section)} onProfileClick={() => setAccountSection('profile')}/></footer>
   </main>;
+}
+
+export default function BookDiscoveryPage() {
+  return <Suspense fallback={<main className="booking-page"><BrandLoader label="Loading booking options…"/></main>}><BookDiscoveryContent/></Suspense>;
 }
