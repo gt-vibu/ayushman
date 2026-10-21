@@ -169,6 +169,13 @@
       "when": 1792571895067,
       "tag": "0023_practice_role_permission_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792578681000,
+      "tag": "0024_public_booking_enabled_by_default",
+      "breakpoints": true
     }
   ]
 }

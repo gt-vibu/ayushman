@@ -7,7 +7,7 @@ services:
     branch: main
     rootDir: .
     buildCommand: pnpm install --frozen-lockfile && pnpm --filter @ayushman-v2/api build
-    startCommand: pnpm --filter @ayushman-v2/api start
+    startCommand: pnpm --filter @ayushman-v2/api db:migrate && pnpm --filter @ayushman-v2/api start
     healthCheckPath: /api/v1/health/ready
     autoDeployTrigger: commit
     envVars:
