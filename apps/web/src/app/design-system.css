@@ -167,8 +167,8 @@
 @keyframes brand-orbit-two { 50% { transform:rotateY(66deg) rotateZ(212deg); } }
 
 /* Customer sign-in/create-account transition, based on the supplied angled-panel reference. */
-.customer-auth-page { display:grid; place-items:center; padding:36px 24px; }
-.customer-auth-shell { position:relative; width:min(100%,1030px); min-height:590px; display:grid; grid-template-columns:1fr 1fr; overflow:hidden; border:1px solid var(--border); border-radius:20px; background:var(--surface); box-shadow:0 24px 70px #4a28200f; perspective:1400px; transform-style:preserve-3d; }
+.customer-auth-page { display:grid; grid-template-columns:minmax(0,1fr); place-items:center; padding:36px 24px; }
+.customer-auth-shell { position:relative; width:min(100%,1280px); min-height:650px; display:grid; grid-template-columns:1fr 1fr; overflow:hidden; border:1px solid var(--border); border-radius:20px; background:var(--surface); box-shadow:0 24px 70px #4a28200f; perspective:1400px; transform-style:preserve-3d; }
 .customer-auth-card { grid-column:1; grid-row:1; width:100%; max-width:none; align-self:stretch; justify-self:stretch; display:flex; flex-direction:column; justify-content:center; padding:clamp(28px,5vw,66px); border:0; border-radius:0; box-shadow:none; }
 .customer-auth-aside { grid-column:2; grid-row:1; display:flex; border:0; padding:clamp(28px,5vw,60px); background:radial-gradient(ellipse at 80% 22%,#ffffff42,transparent 38%),linear-gradient(145deg,#f3e6e1,#f7efeb 60%,#eee7ee); transition:transform .55s cubic-bezier(.2,.75,.25,1); }
 .customer-auth-aside h2 { font-size:clamp(28px,4vw,40px); }
