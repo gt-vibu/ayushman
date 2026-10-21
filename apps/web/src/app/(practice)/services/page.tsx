@@ -11,13 +11,9 @@ import type { Service, StaffMember } from '@/lib/types';
 import { Dialog } from '@/components/dialog';
 import { EmptyState, ErrorState, LoadingState, PageHeader, StatusBadge } from '@/components/app-shell';
 import { Pagination, usePaginatedItems } from '@/components/ui/pagination';
+import { POPULAR_PROFESSIONS, professionCodeFor } from '@/lib/popular-professions';
 
 type ServiceForm = { practiceProfessionId: string; name: string; description: string; durationMinutes: string; bufferBeforeMinutes: string; bufferAfterMinutes: string; price: string; onlineBookable: boolean; active: boolean; professionalUserIds: string[]; locationIds: string[] };
-
-const POPULAR_PROFESSIONS = [
-  'Consultant', 'Doctor', 'Dentist', 'Psychologist', 'Therapist',
-  'Physiotherapist', 'Lawyer', 'Accountant', 'Tutor', 'Personal Trainer',
-];
 
 export default function ServicesPage() {
   const { practice, branchId, branches, professions, permissions, refreshProfessions } = usePractice();
@@ -40,7 +36,7 @@ export default function ServicesPage() {
   function toggle(key: 'professionalUserIds' | 'locationIds', id: string) { setForm((value) => ({ ...value, [key]: value[key].includes(id) ? value[key].filter((item) => item !== id) : [...value[key], id] })); }
   async function addProfession(suggestedName = newProfessionName) {
     const name = suggestedName.trim();
-    const professionCode = name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 64).replace(/-$/g, '');
+    const professionCode = professionCodeFor(name);
     if (name.length < 2 || !professionCode || professionCode.length < 2) { setMessage('Enter a profession name using at least two letters or numbers.'); return; }
     const existing = professions.find((profession) => profession.name.trim().toLowerCase() === name.toLowerCase());
     if (existing) {
