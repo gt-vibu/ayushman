@@ -1,4 +1,4 @@
-import { createReadStream } from 'node:fs';
+import type { Readable } from 'node:stream';
 import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, Req, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
@@ -11,7 +11,7 @@ import { SessionRecordingsService } from './session-recordings.service.js';
 const consentInput = z.object({ accepted: z.boolean() });
 const startInput = z.object({ mimeType: z.string().min(1).max(100) });
 const completeInput = z.object({ durationSeconds: z.number().int().min(1).max(10800) });
-const rangeResponse = async (req: Request, res: Response, file: { path: string; sizeBytes: number; mimeType: string; filename: string }) => {
+const rangeResponse = async (req: Request, res: Response, file: { sizeBytes: number; mimeType: string; filename: string; openReadStream(range?: string): Promise<Readable> }) => {
   const range = req.headers.range;
   const encoded = encodeURIComponent(file.filename);
   res.setHeader('Content-Type', file.mimeType);
@@ -20,17 +20,18 @@ const rangeResponse = async (req: Request, res: Response, file: { path: string; 
   res.setHeader('Cache-Control', 'private, no-store');
   if (!range) {
     res.setHeader('Content-Length', file.sizeBytes);
-    createReadStream(file.path).pipe(res);
+    (await file.openReadStream()).pipe(res);
     return;
   }
   const match = /^bytes=(\d*)-(\d*)$/.exec(range);
   if (!match) { res.status(416).setHeader('Content-Range', `bytes */${file.sizeBytes}`).end(); return; }
-  const start = match[1] ? Number(match[1]) : Math.max(0, file.sizeBytes - Number(match[2]));
+  const suffixLength = Number(match[2]);
+  const start = match[1] ? Number(match[1]) : Math.max(0, file.sizeBytes - suffixLength);
   const end = match[2] && match[1] ? Math.min(Number(match[2]), file.sizeBytes - 1) : file.sizeBytes - 1;
-  if (start > end || start >= file.sizeBytes) { res.status(416).setHeader('Content-Range', `bytes */${file.sizeBytes}`).end(); return; }
+  if ((!match[1] && (!Number.isSafeInteger(suffixLength) || suffixLength <= 0)) || !Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start > end || start >= file.sizeBytes) { res.status(416).setHeader('Content-Range', `bytes */${file.sizeBytes}`).end(); return; }
   res.status(206).setHeader('Content-Range', `bytes ${start}-${end}/${file.sizeBytes}`);
   res.setHeader('Content-Length', end - start + 1);
-  createReadStream(file.path, { start, end }).pipe(res);
+  (await file.openReadStream(`bytes=${start}-${end}`)).pipe(res);
 };
 
 @Controller('practices/:practiceId/session-recordings')

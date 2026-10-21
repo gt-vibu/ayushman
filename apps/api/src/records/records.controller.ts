@@ -1,4 +1,3 @@
-import { createReadStream } from 'node:fs';
 import { basename } from 'node:path';
 import { Body, Controller, Delete, Get, Param, Post, Query, Req, StreamableFile, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -36,7 +35,7 @@ export class PracticeRecordsController {
   async content(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string,
     @Param('documentId') documentId: string, @Query('inline') inline?: string) {
     const file = await this.records.staffFile(req.user.id, practiceId, documentId);
-    return new StreamableFile(createReadStream(file.path), { ...fileHeaders(file.originalName, file.mediaType, inline === '1'), length: file.sizeBytes });
+    return new StreamableFile(await this.records.read(file), { ...fileHeaders(file.originalName, file.mediaType, inline === '1'), length: file.sizeBytes });
   }
 
   @Delete('files/:documentId')
@@ -53,6 +52,6 @@ export class CustomerDocumentsController {
   @Get(':documentId/content')
   async content(@Req() req: CustomerAuthenticatedRequest, @Param('documentId') documentId: string, @Query('inline') inline?: string) {
     const file = await this.records.customerFile(req.user.id, documentId);
-    return new StreamableFile(createReadStream(file.path), { ...fileHeaders(file.originalName, file.mediaType, inline === '1'), length: file.sizeBytes });
+    return new StreamableFile(await this.records.read(file), { ...fileHeaders(file.originalName, file.mediaType, inline === '1'), length: file.sizeBytes });
   }
 }

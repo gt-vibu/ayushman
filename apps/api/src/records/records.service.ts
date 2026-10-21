@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, desc, eq, isNull, sql } from '@ayushman-v2/db/drizzle';
@@ -7,6 +6,7 @@ import type { Database } from '@ayushman-v2/db';
 import { appointments, auditEvents, clientDocuments, clients, locations } from '@ayushman-v2/db/schema';
 import { DATABASE } from '../database.module.js';
 import { AuthorizationService } from '../auth/authorization.service.js';
+import { PrivateObjectStorage } from './private-object-storage.service.js';
 
 export const DOCUMENT_CATEGORIES = ['prescription', 'lab_result', 'report', 'referral', 'consent', 'insurance', 'other'] as const;
 const MIME_SIGNATURES: Record<string, (bytes: Buffer) => boolean> = {
@@ -20,7 +20,7 @@ const MIME_SIGNATURES: Record<string, (bytes: Buffer) => boolean> = {
 export class RecordsService {
   private readonly directory = resolve(process.env.PRIVATE_FILE_STORAGE_DIR || resolve(process.cwd(), '.private-files'));
 
-  constructor(@Inject(DATABASE) private readonly db: Database, private readonly authorization: AuthorizationService) {}
+  constructor(@Inject(DATABASE) private readonly db: Database, private readonly authorization: AuthorizationService, private readonly storage: PrivateObjectStorage) {}
 
   async list(userId: string, practiceId: string, clientId?: string) {
     const permission = await this.authorization.resolvePermission({ userId, practiceId, permissionCode: 'records.read', ownRecordsAreQueryScoped: true });
@@ -73,23 +73,25 @@ export class RecordsService {
     const storageKey = randomUUID();
     const mediaType = file.mimetype.toLowerCase();
     const name = basename(file.originalname).replace(/[\u0000-\u001f\\/:*?"<>|]/g, '_').slice(0, 240) || 'document';
-    await mkdir(this.directory, { recursive: true });
-    await writeFile(join(this.directory, storageKey), file.buffer, { flag: 'wx', mode: 0o600 });
+    const path = join(this.directory, storageKey);
+    await this.storage.writeBuffer(storageKey, file.buffer, path, mediaType);
     try {
-      const [document] = await this.db.insert(clientDocuments).values({
-        id, storageKey, practiceId, clientId: input.clientId, appointmentId: input.appointmentId ?? null,
-        locationId: input.locationId ?? null, uploadedByUserId: userId, originalName: name, mediaType,
-        sizeBytes: file.size, category: input.category, description: input.description?.trim() || null,
-        customerVisible: input.customerVisible,
-      }).returning({
-        id: clientDocuments.id, clientId: clientDocuments.clientId, originalName: clientDocuments.originalName,
-        mediaType: clientDocuments.mediaType, sizeBytes: clientDocuments.sizeBytes, category: clientDocuments.category,
-        description: clientDocuments.description, customerVisible: clientDocuments.customerVisible, createdAt: clientDocuments.createdAt,
+      return await this.db.transaction(async (tx) => {
+        const [document] = await tx.insert(clientDocuments).values({
+          id, storageKey, practiceId, clientId: input.clientId, appointmentId: input.appointmentId ?? null,
+          locationId: input.locationId ?? null, uploadedByUserId: userId, originalName: name, mediaType,
+          sizeBytes: file.size, category: input.category, description: input.description?.trim() || null,
+          customerVisible: input.customerVisible,
+        }).returning({
+          id: clientDocuments.id, clientId: clientDocuments.clientId, originalName: clientDocuments.originalName,
+          mediaType: clientDocuments.mediaType, sizeBytes: clientDocuments.sizeBytes, category: clientDocuments.category,
+          description: clientDocuments.description, customerVisible: clientDocuments.customerVisible, createdAt: clientDocuments.createdAt,
+        });
+        await tx.insert(auditEvents).values({ practiceId, actorUserId: userId, action: 'client_document.uploaded', entityType: 'client_document', entityId: id, metadata: { clientId: input.clientId, category: input.category, sizeBytes: file.size } });
+        return document;
       });
-      await this.db.insert(auditEvents).values({ practiceId, actorUserId: userId, action: 'client_document.uploaded', entityType: 'client_document', entityId: id, metadata: { clientId: input.clientId, category: input.category, sizeBytes: file.size } });
-      return document;
     } catch (cause) {
-      await unlink(join(this.directory, storageKey)).catch(() => undefined);
+      await this.storage.remove(storageKey, path).catch(() => undefined);
       throw cause;
     }
   }
@@ -98,7 +100,7 @@ export class RecordsService {
     const document = await this.staffDocument(userId, practiceId, id, 'records.write');
     await this.db.update(clientDocuments).set({ deletedAt: new Date(), customerVisible: false })
       .where(and(eq(clientDocuments.id, id), eq(clientDocuments.practiceId, practiceId), isNull(clientDocuments.deletedAt)));
-    await unlink(join(this.directory, document.storageKey)).catch(() => undefined);
+    await this.storage.remove(document.storageKey, document.path).catch(() => undefined);
     await this.db.insert(auditEvents).values({ practiceId, actorUserId: userId, action: 'client_document.deleted', entityType: 'client_document', entityId: id, metadata: { clientId: document.clientId } });
     return { deleted: true };
   }
@@ -119,8 +121,8 @@ export class RecordsService {
     return { ...document, path: join(this.directory, document.storageKey) };
   }
 
-  async read(filePath: string) {
-    try { return await readFile(filePath); }
+  async read(file: { storageKey: string; path: string }) {
+    try { return await this.storage.openReadStream(file.storageKey, file.path); }
     catch { throw new NotFoundException('File content is unavailable'); }
   }
 

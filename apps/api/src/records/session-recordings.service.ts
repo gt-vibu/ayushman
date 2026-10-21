@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdir, open, rename, stat, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, open, rename, stat, unlink } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -10,6 +10,7 @@ import type { Database } from '@ayushman-v2/db';
 import { appointments, auditEvents, clients, practices, sessionRecordingChunks, sessionRecordingConsents, sessionRecordings } from '@ayushman-v2/db/schema';
 import { DATABASE } from '../database.module.js';
 import { AuthorizationService } from '../auth/authorization.service.js';
+import { PrivateObjectStorage } from './private-object-storage.service.js';
 
 const NOTICE_VERSION = 'session-recording-v1';
 const MAX_CHUNK_BYTES = 5 * 1024 * 1024;
@@ -142,7 +143,7 @@ export class SessionRecordingsService implements OnModuleInit, OnModuleDestroy {
   private readonly directory = resolve(process.env.PRIVATE_RECORDING_STORAGE_DIR || resolve(process.cwd(), '.private-recordings'));
   private cleanupTimer?: NodeJS.Timeout;
 
-  constructor(@Inject(DATABASE) private readonly db: Database, private readonly authorization: AuthorizationService) {}
+  constructor(@Inject(DATABASE) private readonly db: Database, private readonly authorization: AuthorizationService, private readonly storage: PrivateObjectStorage) {}
 
   onModuleInit() {
     this.cleanupTimer = setInterval(() => void this.expireOldRecordings(), 6 * 60 * 60 * 1000);
@@ -269,11 +270,11 @@ export class SessionRecordingsService implements OnModuleInit, OnModuleDestroy {
     if (!recording) throw new NotFoundException('Recording session not found');
     await this.authorizedAppointment(userId, practiceId, recording.appointmentId);
     if (!['recording', 'stop_requested'].includes(recording.status)) throw new ConflictException('The recording is no longer accepting segments');
-    await mkdir(this.directory, { recursive: true });
     const storageKey = randomUUID();
     const path = join(this.directory, storageKey);
     try {
-      return await this.db.transaction(async (tx) => {
+      await this.storage.writeBuffer(storageKey, file.buffer, path, file.mimetype || recording.mimeType || 'application/octet-stream');
+      const result = await this.db.transaction(async (tx) => {
         // Serialize quota checks per recording so simultaneous uploads cannot
         // race past the overall size limit or create duplicate segment indexes.
         await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${recordingId}))`);
@@ -281,12 +282,13 @@ export class SessionRecordingsService implements OnModuleInit, OnModuleDestroy {
         if (existing) return { accepted: true, duplicate: true };
         const [total] = await tx.select({ bytes: sql<number>`coalesce(sum(${sessionRecordingChunks.sizeBytes}),0)::int` }).from(sessionRecordingChunks).where(eq(sessionRecordingChunks.recordingId, recordingId));
         if (Number(total.bytes) + file.size > MAX_RECORDING_BYTES) throw new BadRequestException('The recording exceeds the 512 MB limit');
-        await writeFile(path, file.buffer, { flag: 'wx', mode: 0o600 });
         await tx.insert(sessionRecordingChunks).values({ recordingId, chunkIndex: index, storageKey, sizeBytes: file.size });
         await tx.update(sessionRecordings).set({ status: 'uploading', updatedAt: new Date() }).where(and(eq(sessionRecordings.id, recordingId), eq(sessionRecordings.status, 'recording')));
         return { accepted: true, duplicate: false };
       });
-    } catch (error) { await unlink(path).catch(() => undefined); throw error; }
+      if (result.duplicate) await this.storage.remove(storageKey, path);
+      return result;
+    } catch (error) { await this.storage.remove(storageKey, path).catch(() => undefined); throw error; }
   }
 
   async complete(userId: string, practiceId: string, recordingId: string, durationSeconds: number) {
@@ -302,8 +304,13 @@ export class SessionRecordingsService implements OnModuleInit, OnModuleDestroy {
     const destination = join(this.directory, storageKey);
     await mkdir(this.directory, { recursive: true });
     try {
-      async function* data() { for (const chunk of chunks) { for await (const part of createReadStream(join(thisDir, chunk.storageKey))) yield part as Buffer; } }
-      const thisDir = this.directory;
+      const storage = this.storage;
+      const directory = this.directory;
+      async function* data() {
+        for (const chunk of chunks) {
+          for await (const part of await storage.openReadStream(chunk.storageKey, join(directory, chunk.storageKey))) yield part as Buffer;
+        }
+      }
       await pipeline(Readable.from(data()), createWriteStream(destination, { flags: 'wx', mode: 0o600 }));
     } catch (cause) {
       await unlink(destination).catch(() => undefined);
@@ -321,12 +328,20 @@ export class SessionRecordingsService implements OnModuleInit, OnModuleDestroy {
       await unlink(destination).catch(() => undefined);
       throw new BadRequestException('The finalized recording exceeds the 512 MB limit');
     }
+    try {
+      await this.storage.uploadFile(storageKey, destination, recording.mimeType ?? 'audio/webm');
+    } catch (cause) {
+      await unlink(destination).catch(() => undefined);
+      this.logger.error('Could not store finalized session recording', cause);
+      throw new ConflictException('Could not store the recording. Retry saving the session');
+    }
     const now = new Date();
     const expiry = new Date(now.getTime() + recording.retentionDays * 24 * 60 * 60 * 1000);
     const [saved] = await this.db.update(sessionRecordings).set({ status: 'ready_for_review', sharingStatus: 'private', sizeBytes, durationSeconds, endedAt: now, retentionExpiresAt: expiry, updatedAt: now })
       .where(and(eq(sessionRecordings.id, recordingId), sql`${sessionRecordings.status} IN ('recording','uploading','stop_requested')`)).returning({ id: sessionRecordings.id });
-    if (!saved) { await unlink(destination).catch(() => undefined); throw new ConflictException('Recording state changed before it could be saved'); }
-    for (const chunk of chunks) await unlink(join(this.directory, chunk.storageKey)).catch(() => undefined);
+    if (!saved) { await this.storage.remove(storageKey, destination).catch(() => undefined); throw new ConflictException('Recording state changed before it could be saved'); }
+    for (const chunk of chunks) await this.storage.remove(chunk.storageKey, join(this.directory, chunk.storageKey)).catch((error) => this.logger.warn(`Could not remove recording segment ${chunk.storageKey}: ${error instanceof Error ? error.message : 'unknown error'}`));
+    if (this.storage.usesS3) await unlink(destination).catch(() => undefined);
     await this.audit(practiceId, userId, 'session_recording.saved_for_review', recordingId, { sizeBytes, durationSeconds });
     return { status: 'ready_for_review', sizeBytes, retentionExpiresAt: expiry };
   }
@@ -368,22 +383,20 @@ export class SessionRecordingsService implements OnModuleInit, OnModuleDestroy {
     const [recording] = await this.db.select().from(sessionRecordings).where(and(eq(sessionRecordings.id, recordingId), eq(sessionRecordings.practiceId, practiceId), isNull(sessionRecordings.deletedAt))).limit(1);
     if (!recording || !['ready_for_review', 'shared', 'stop_requested'].includes(recording.status) || (recording.retentionExpiresAt && recording.retentionExpiresAt <= new Date())) throw new NotFoundException('Recording audio is unavailable');
     await this.authorizedAppointment(userId, practiceId, recording.appointmentId);
+    if (recording.sizeBytes === null) throw new NotFoundException('Recording audio is unavailable');
     const path = join(this.directory, recording.storageKey);
-    const details = await stat(path).catch(() => null);
-    if (!details) throw new NotFoundException('Recording audio is unavailable');
     await this.audit(practiceId, userId, 'session_recording.played_by_practitioner', recordingId, {});
-    return { path, sizeBytes: details.size, mimeType: recording.mimeType ?? 'audio/webm', filename: `session-${recordingId}.webm` };
+    return { path, storageKey: recording.storageKey, sizeBytes: recording.sizeBytes, mimeType: recording.mimeType ?? 'audio/webm', filename: `session-${recordingId}.webm`, openReadStream: (range?: string) => this.storage.openReadStream(recording.storageKey, path, range) };
   }
 
   async customerFile(userId: string, recordingId: string) {
-    const [recording] = await this.db.select({ id: sessionRecordings.id, practiceId: sessionRecordings.practiceId, clientId: sessionRecordings.clientId, storageKey: sessionRecordings.storageKey, mimeType: sessionRecordings.mimeType, sharingStatus: sessionRecordings.sharingStatus, status: sessionRecordings.status, customerUserId: clients.userId, retentionExpiresAt: sessionRecordings.retentionExpiresAt })
+    const [recording] = await this.db.select({ id: sessionRecordings.id, practiceId: sessionRecordings.practiceId, clientId: sessionRecordings.clientId, storageKey: sessionRecordings.storageKey, mimeType: sessionRecordings.mimeType, sizeBytes: sessionRecordings.sizeBytes, sharingStatus: sessionRecordings.sharingStatus, status: sessionRecordings.status, customerUserId: clients.userId, retentionExpiresAt: sessionRecordings.retentionExpiresAt })
       .from(sessionRecordings).innerJoin(clients, eq(clients.id, sessionRecordings.clientId)).where(and(eq(sessionRecordings.id, recordingId), isNull(sessionRecordings.deletedAt))).limit(1);
     if (!recording || recording.customerUserId !== userId || recording.sharingStatus !== 'shared' || recording.status !== 'shared' || (recording.retentionExpiresAt && recording.retentionExpiresAt <= new Date())) throw new NotFoundException('Shared session replay not found');
     const path = join(this.directory, recording.storageKey);
-    const details = await stat(path).catch(() => null);
-    if (!details) throw new NotFoundException('Session replay is unavailable');
     await this.audit(recording.practiceId, userId, 'session_recording.played_by_customer', recordingId, {});
-    return { path, sizeBytes: details.size, mimeType: recording.mimeType ?? 'audio/webm', filename: `session-${recordingId}.webm` };
+    if (recording.sizeBytes === null) throw new NotFoundException('Session replay is unavailable');
+    return { path, storageKey: recording.storageKey, sizeBytes: recording.sizeBytes, mimeType: recording.mimeType ?? 'audio/webm', filename: `session-${recordingId}.webm`, openReadStream: (range?: string) => this.storage.openReadStream(recording.storageKey, path, range) };
   }
 
   private async authorizedAppointment(userId: string, practiceId: string, appointmentId: string) {
@@ -404,9 +417,9 @@ export class SessionRecordingsService implements OnModuleInit, OnModuleDestroy {
       const expired = await this.db.update(sessionRecordings).set({ status: 'expired', sharingStatus: 'expired', deletedAt: new Date(), updatedAt: new Date() })
         .where(and(lte(sessionRecordings.retentionExpiresAt, new Date()), isNull(sessionRecordings.deletedAt), sql`${sessionRecordings.status} IN ('ready_for_review','shared')`)).returning({ storageKey: sessionRecordings.storageKey, id: sessionRecordings.id });
       for (const row of expired) {
-        await unlink(join(this.directory, row.storageKey)).catch(() => undefined);
+        await this.storage.remove(row.storageKey, join(this.directory, row.storageKey)).catch((error) => this.logger.warn(`Could not remove expired recording ${row.id}: ${error instanceof Error ? error.message : 'unknown error'}`));
         const chunks = await this.db.select({ storageKey: sessionRecordingChunks.storageKey }).from(sessionRecordingChunks).where(eq(sessionRecordingChunks.recordingId, row.id));
-        for (const chunk of chunks) await unlink(join(this.directory, chunk.storageKey)).catch(() => undefined);
+        for (const chunk of chunks) await this.storage.remove(chunk.storageKey, join(this.directory, chunk.storageKey)).catch(() => undefined);
       }
     } catch (error) { this.logger.error('Could not apply session recording retention cleanup', error); }
   }

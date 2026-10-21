@@ -15,6 +15,7 @@
     "bootstrap:superadmin": "node scripts/bootstrap-superadmin.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1154.0",
     "@ayushman-v2/contracts": "workspace:*",
     "@ayushman-v2/db": "workspace:*",
     "@nestjs/common": "^11.1.9",

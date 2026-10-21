@@ -4,6 +4,7 @@ import { CustomerDocumentsController, PracticeRecordsController } from './record
 import { RecordsService } from './records.service.js';
 import { PracticeSessionRecordingsController, CustomerSessionRecordingsController } from './session-recordings.controller.js';
 import { SessionRecordingsService } from './session-recordings.service.js';
+import { PrivateObjectStorage } from './private-object-storage.service.js';
 
-@Module({ imports: [AuthModule], controllers: [PracticeRecordsController, CustomerDocumentsController, PracticeSessionRecordingsController, CustomerSessionRecordingsController], providers: [RecordsService, SessionRecordingsService] })
+@Module({ imports: [AuthModule], controllers: [PracticeRecordsController, CustomerDocumentsController, PracticeSessionRecordingsController, CustomerSessionRecordingsController], providers: [PrivateObjectStorage, RecordsService, SessionRecordingsService] })
 export class RecordsModule {}
