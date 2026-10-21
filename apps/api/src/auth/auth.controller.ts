@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Ip, Post, Req, Res, UnauthorizedException, UseGuards } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import { CustomerRegistrationInput, LoginInput, RegistrationInput, type CustomerRegistrationInput as CustomerRegistrationPayload, type LoginInput as LoginPayload, type RegistrationInput as RegistrationPayload } from '@ayushman-v2/contracts';
+import { ChangePasswordInput, CustomerRegistrationInput, LoginInput, RegistrationInput, type ChangePasswordInput as ChangePasswordPayload, type CustomerRegistrationInput as CustomerRegistrationPayload, type LoginInput as LoginPayload, type RegistrationInput as RegistrationPayload } from '@ayushman-v2/contracts';
 import { readEnvironment } from '../config.js';
 import { ZodValidationPipe } from '../zod-validation.pipe.js';
 import { AuthService } from './auth.service.js';
@@ -80,6 +80,16 @@ export class AuthController {
   @UseGuards(SessionGuard)
   async me(@Req() request: AuthenticatedRequest) {
     return { user: request.user, practices: await this.auth.memberships(request.user.id) };
+  }
+
+  @Post('change-password')
+  @UseGuards(SessionGuard)
+  async changePassword(
+    @Req() request: AuthenticatedRequest,
+    @Body(new ZodValidationPipe(ChangePasswordInput)) input: ChangePasswordPayload,
+  ) {
+    await this.auth.changePassword(request.user.id, request.cookies?.[COOKIE] as string | undefined, input);
+    return { ok: true };
   }
 
   @Get('identity')

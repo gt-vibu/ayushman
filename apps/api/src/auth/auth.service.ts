@@ -1,11 +1,11 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { ConflictException, HttpException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
-import { and, eq, gt, isNull, sql } from '@ayushman-v2/db/drizzle';
+import { and, eq, gt, isNull, ne, sql } from '@ayushman-v2/db/drizzle';
 import * as argon2 from 'argon2';
 import type { Database } from '@ayushman-v2/db';
 import { bookingPolicies, customerProfiles, platformMembershipRoles, platformMemberships, practiceMembershipRoles, practiceMemberships, practices, sessions, users } from '@ayushman-v2/db/schema';
-import type { CustomerRegistrationInput, LoginInput, RegistrationInput } from '@ayushman-v2/contracts';
+import type { ChangePasswordInput, CustomerRegistrationInput, LoginInput, RegistrationInput } from '@ayushman-v2/contracts';
 import { DATABASE } from '../database.module.js';
 import { readEnvironment } from '../config.js';
 import { REDIS, type RedisStore } from '../redis.module.js';
@@ -109,12 +109,13 @@ export class AuthService {
     const valid = user ? await argon2.verify(user.passwordHash, input.password).catch(() => false) : false;
     if (!user || !valid) throw new UnauthorizedException('Email or password is incorrect');
 
-    const [customerAccount] = await this.db.select({ userId: customerProfiles.userId }).from(customerProfiles)
-      .where(eq(customerProfiles.userId, user.id)).limit(1);
+    const [[customerAccount], [platformAccount]] = await Promise.all([
+      this.db.select({ userId: customerProfiles.userId }).from(customerProfiles)
+        .where(eq(customerProfiles.userId, user.id)).limit(1),
+      this.db.select({ id: platformMemberships.id }).from(platformMemberships)
+        .where(and(eq(platformMemberships.userId, user.id), eq(platformMemberships.status, 'active'))).limit(1),
+    ]);
     if (customerAccount) throw new UnauthorizedException('Use the customer sign-in page');
-
-    const [platformAccount] = await this.db.select({ id: platformMemberships.id }).from(platformMemberships)
-      .where(and(eq(platformMemberships.userId, user.id), eq(platformMemberships.status, 'active'))).limit(1);
     if (platformAccount) throw new UnauthorizedException('Use the platform administrator sign-in');
 
     const token = randomBytes(32).toString('base64url');
@@ -148,6 +149,22 @@ export class AuthService {
   async logout(token?: string): Promise<void> {
     if (!token) return;
     await this.db.update(sessions).set({ revokedAt: new Date() }).where(and(eq(sessions.tokenHash, hashToken(token)), isNull(sessions.revokedAt)));
+  }
+
+  async changePassword(userId: string, currentToken: string | undefined, input: ChangePasswordInput): Promise<void> {
+    const [user] = await this.db.select({ passwordHash: users.passwordHash }).from(users)
+      .where(and(eq(users.id, userId), isNull(users.disabledAt))).limit(1);
+    const valid = user ? await argon2.verify(user.passwordHash, input.currentPassword).catch(() => false) : false;
+    if (!user || !valid) throw new UnauthorizedException('Current password is incorrect');
+    const passwordHash = await argon2.hash(input.newPassword, { type: argon2.argon2id, memoryCost: 19456, timeCost: 2, parallelism: 1 });
+    const currentTokenHash = currentToken ? hashToken(currentToken) : '';
+    await this.db.transaction(async (tx) => {
+      await tx.update(users).set({ passwordHash, updatedAt: new Date() }).where(eq(users.id, userId));
+      const activeSessions = and(eq(sessions.userId, userId), isNull(sessions.revokedAt));
+      await tx.update(sessions).set({ revokedAt: new Date() }).where(currentTokenHash
+        ? and(activeSessions, ne(sessions.tokenHash, currentTokenHash))
+        : activeSessions);
+    });
   }
 
   async authenticate(token: string): Promise<{ id: string; email: string; fullName: string }> {

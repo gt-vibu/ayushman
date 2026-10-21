@@ -3,10 +3,10 @@ import type { Database } from '@ayushman-v2/db';
 import { practiceMembershipRoles, practiceRolePermissionSettings, rolePermissionGrants } from '@ayushman-v2/db/schema';
 
 export async function getRolePermissionAssignments(db: Database, practiceId: string, membershipId: string, permissionCode?: string) {
-  const roleRows = await db.select({ role: practiceMembershipRoles.role }).from(practiceMembershipRoles)
+  // Keep the role lookup inside each permissions query. Fetching roles first
+  // added an avoidable database round trip to every authorization check.
+  const roles = db.select({ role: practiceMembershipRoles.role }).from(practiceMembershipRoles)
     .where(eq(practiceMembershipRoles.membershipId, membershipId));
-  const roles = [...new Set(roleRows.map((row) => row.role))];
-  if (!roles.length) return [];
 
   const [defaults, practiceSettings] = await Promise.all([
     db.select({ role: rolePermissionGrants.role, permissionCode: rolePermissionGrants.permissionCode, scope: rolePermissionGrants.scope })

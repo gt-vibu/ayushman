@@ -32,6 +32,14 @@ export const LoginInput = z.object({
   password: z.string().min(1).max(128),
 });
 
+export const ChangePasswordInput = z.object({
+  currentPassword: z.string().min(1).max(128),
+  newPassword: z.string().min(12).max(128),
+}).refine((value) => value.currentPassword !== value.newPassword, {
+  message: 'Choose a password different from your current password',
+  path: ['newPassword'],
+});
+
 export const RegistrationInput = z.object({
   email: z.email().max(320),
   fullName: z.string().trim().min(2).max(160),
@@ -401,6 +409,7 @@ export const ClientDocumentUploadInput = z.object({
 });
 
 export type LoginInput = z.infer<typeof LoginInput>;
+export type ChangePasswordInput = z.infer<typeof ChangePasswordInput>;
 export type RegistrationInput = z.infer<typeof RegistrationInput>;
 export type CustomerRegistrationInput = z.infer<typeof CustomerRegistrationInput>;
 export type CustomerProfileUpdateInput = z.infer<typeof CustomerProfileUpdateInput>;

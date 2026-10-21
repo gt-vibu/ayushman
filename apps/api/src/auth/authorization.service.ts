@@ -86,23 +86,24 @@ export class AuthorizationService {
       .limit(1);
     if (!membership) return false;
 
-    const [hasBranchAccess] = check.locationId
-      ? await this.db.select({ membershipId: practiceMembershipLocations.membershipId })
+    const [[hasBranchAccess], overrides, grants] = await Promise.all([
+      check.locationId
+        ? this.db.select({ membershipId: practiceMembershipLocations.membershipId })
           .from(practiceMembershipLocations)
           .where(and(
             eq(practiceMembershipLocations.membershipId, membership.id),
             eq(practiceMembershipLocations.locationId, check.locationId),
           ))
           .limit(1)
-      : [];
-
-    const overrides = await this.db
-      .select({ locationId: membershipPermissionOverrides.locationId, effect: membershipPermissionOverrides.effect })
-      .from(membershipPermissionOverrides)
-      .where(and(
-        eq(membershipPermissionOverrides.membershipId, membership.id),
-        eq(membershipPermissionOverrides.permissionCode, check.permissionCode),
-      ));
+        : Promise.resolve([]),
+      this.db.select({ locationId: membershipPermissionOverrides.locationId, effect: membershipPermissionOverrides.effect })
+        .from(membershipPermissionOverrides)
+        .where(and(
+          eq(membershipPermissionOverrides.membershipId, membership.id),
+          eq(membershipPermissionOverrides.permissionCode, check.permissionCode),
+        )),
+      getRolePermissionAssignments(this.db, check.practiceId, membership.id, check.permissionCode),
+    ]);
     const applicable = overrides.filter((row) =>
       row.locationId === null || (check.locationId !== undefined && row.locationId === check.locationId),
     );
@@ -112,8 +113,6 @@ export class AuthorizationService {
     const [locationAllow] = applicable.filter((row) => row.effect === 'allow' && row.locationId !== null);
     if (practiceWideAllow) return true;
     if (locationAllow && hasBranchAccess) return true;
-
-    const grants = await getRolePermissionAssignments(this.db, check.practiceId, membership.id, check.permissionCode);
 
     return grants.some(({ scope }) => {
       if (scope === 'practice') return true;
@@ -139,15 +138,17 @@ export class AuthorizationService {
         eq(practiceMemberships.status, 'active'),
       )).limit(1);
     if (!membership) return false;
-    const overrides = await this.db.select({ effect: membershipPermissionOverrides.effect, locationId: membershipPermissionOverrides.locationId })
-      .from(membershipPermissionOverrides).where(and(
-        eq(membershipPermissionOverrides.membershipId, membership.id),
-        eq(membershipPermissionOverrides.permissionCode, check.permissionCode),
-      ));
+    const [overrides, grants] = await Promise.all([
+      this.db.select({ effect: membershipPermissionOverrides.effect, locationId: membershipPermissionOverrides.locationId })
+        .from(membershipPermissionOverrides).where(and(
+          eq(membershipPermissionOverrides.membershipId, membership.id),
+          eq(membershipPermissionOverrides.permissionCode, check.permissionCode),
+        )),
+      getRolePermissionAssignments(this.db, check.practiceId, membership.id, check.permissionCode),
+    ]);
     const applicableAllow = overrides.some((item) => item.effect === 'allow' &&
       (item.locationId === null || item.locationId === check.locationId));
     if (applicableAllow) return false;
-    const grants = await getRolePermissionAssignments(this.db, check.practiceId, membership.id, check.permissionCode);
     return grants.some((grant) => grant.scope === 'own') && !grants.some((grant) => grant.scope === 'practice');
   }
 

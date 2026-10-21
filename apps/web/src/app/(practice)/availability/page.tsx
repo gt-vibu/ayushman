@@ -46,6 +46,17 @@ export default function AvailabilityPage() {
   function updateDay(weekday: number, changes: Partial<DayRule>) {
     setDays((current) => current.map((day) => day.weekday === weekday ? { ...day, ...changes } : day));
   }
+  function applyAvailabilityPreset(includeWeekends: boolean) {
+    setDays(weekdays.map((_, weekday) => ({
+      weekday,
+      enabled: includeWeekends || (weekday >= 1 && weekday <= 5),
+      start: '09:00',
+      end: '17:00',
+      interval: 30,
+    })));
+    setMessage('Preset applied. Save availability to make it bookable.');
+    setError('');
+  }
   async function save() {
     setBusy(true); setMessage(''); setError('');
     try {
@@ -66,6 +77,7 @@ export default function AvailabilityPage() {
     <PageHeader eyebrow="SCHEDULING" title="Your availability" description="Set the times customers can book with you. Location operating hours still apply." action={<button className="button button-primary" onClick={() => void save()} disabled={busy || !professionId || !activeBranchId}><Check size={15}/>{busy ? 'Saving…' : 'Save availability'}</button>}/>
     <section className="section-card schedule-settings">
       <div className="schedule-scope"><label>Profession<DropdownSelect value={professionId} onChange={(event) => setProfessionId(event.target.value)} disabled={!professions?.length}>{professions?.map((profession) => <option value={profession.id} key={profession.id}>{profession.name}</option>)}</DropdownSelect></label><label>Location<DropdownSelect value={activeBranchId} onChange={(event) => setBranchId(event.target.value)}>{branches.map((branch) => <option value={branch.id} key={branch.id}>{branch.name}</option>)}</DropdownSelect></label></div>
+      <div className="availability-presets"><span>Start with a common schedule</span><button type="button" className="button button-secondary compact-button" onClick={() => applyAvailabilityPreset(false)}>Weekdays · 9–5</button><button type="button" className="button button-secondary compact-button" onClick={() => applyAvailabilityPreset(true)}>Every day · 9–5</button></div>
       {loadingProfessions || loadingRules ? <LoadingState/> : professionError || rulesError ? <ErrorState message={professionError || rulesError || 'Availability could not load.'}/> : !branches.length ? <ErrorState message="Add a location before setting availability."/> : <div className="schedule-days">{days.map((day) => <article className={`schedule-day ${day.enabled ? '' : 'schedule-day-closed'}`} key={day.weekday}>
         <label className="schedule-day-toggle"><input type="checkbox" checked={day.enabled} onChange={(event) => updateDay(day.weekday, { enabled: event.target.checked })}/><strong>{weekdays[day.weekday]}</strong><span>{day.enabled ? 'Available' : 'Unavailable'}</span></label>
         {day.enabled && <div className="schedule-day-fields"><label>From<input type="time" value={day.start} onChange={(event) => updateDay(day.weekday, { start: event.target.value })}/></label><label>To<input type="time" value={day.end} onChange={(event) => updateDay(day.weekday, { end: event.target.value })}/></label><label>Start times every<DropdownSelect value={day.interval} onChange={(event) => updateDay(day.weekday, { interval: Number(event.target.value) })}><option value={15}>15 minutes</option><option value={20}>20 minutes</option><option value={30}>30 minutes</option><option value={60}>60 minutes</option></DropdownSelect></label></div>}

@@ -28,14 +28,13 @@ const SAVED_BRANCH = 'ayushman.branch_id';
 export function PracticeProvider({ children }: Readonly<{ children: ReactNode }>) {
   const router = useRouter();
   const pathname = usePathname();
-  const practiceRoutes = ['/dashboard', '/appointments', '/calendar', '/availability', '/clients', '/services', '/staff', '/branches', '/billing', '/records', '/reports', '/settings', '/follow-ups', '/consultations', '/cancellation-requests', '/policy-overrides', '/setup'];
+  const practiceRoutes = ['/dashboard', '/appointments', '/calendar', '/availability', '/clients', '/services', '/staff', '/branches', '/billing', '/records', '/reports', '/settings', '/profile', '/follow-ups', '/consultations', '/cancellation-requests', '/policy-overrides', '/setup'];
   const shouldLoadWorkspace = practiceRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`));
   const [session, setSession] = useState<Session | null>(null);
   const [practice, setPractice] = useState<Practice | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [professions, setProfessions] = useState<PracticeProfession[]>([]);
   const [permissions, setPermissions] = useState<Record<string, boolean>>({});
-  const [permissionsReady, setPermissionsReady] = useState(false);
   const [practiceId, setPracticeId] = useState('');
   const [branchId, setBranchIdState] = useState('');
   const [loading, setLoading] = useState(true);
@@ -47,13 +46,24 @@ export function PracticeProvider({ children }: Readonly<{ children: ReactNode }>
     sessionLoaded.current = true;
     let active = true;
     let settled = false;
+    // On a returning browser, the selected practice ID is already known. Start
+    // loading it alongside the identity request so the post-login redirect
+    // does not spend two API round trips waiting on these independent reads.
+    const savedPracticeId = localStorage.getItem(SAVED_PRACTICE);
+    const savedPracticeRequest = savedPracticeId
+      ? api<Practice>(`/practices/${encodeURIComponent(savedPracticeId)}`).catch(() => null)
+      : null;
     api<Session>('/auth/me').then((value) => {
       if (!active) return;
       setSession(value);
-      const saved = localStorage.getItem(SAVED_PRACTICE);
-      const selected = value.practices.find((item) => item.practiceId === saved) ?? value.practices[0];
+      const selected = value.practices.find((item) => item.practiceId === savedPracticeId) ?? value.practices[0];
       if (!selected) throw new Error('Your account is not assigned to an active practice. Ask a practice owner for an invitation.');
       setPracticeId(selected.practiceId);
+      if (selected.practiceId === savedPracticeId && savedPracticeRequest) {
+        void savedPracticeRequest.then((nextPractice) => {
+          if (active && nextPractice) setPractice(nextPractice);
+        });
+      }
     }).catch((cause: unknown) => {
       if (!active) return;
       if (cause instanceof ApiError && cause.status === 401) { sessionLoaded.current = false; router.replace('/login'); }
@@ -69,20 +79,24 @@ export function PracticeProvider({ children }: Readonly<{ children: ReactNode }>
     if (!practiceId) return;
     localStorage.setItem(SAVED_PRACTICE, practiceId);
     let active = true;
-    Promise.all([
-      api<Practice>(`/practices/${practiceId}`),
-      api<Branch[]>(`/practices/${practiceId}/locations`),
-      api<PracticeProfession[]>(`/practices/${practiceId}/professions`),
-    ]).then(([nextPractice, nextBranches, nextProfessions]) => {
+    void api<Practice>(`/practices/${practiceId}`).then((nextPractice) => {
+      if (active) setPractice(nextPractice);
+    }).catch((cause: unknown) => {
+      if (active) setError(cause instanceof Error ? cause.message : 'Could not load practice settings.');
+    });
+    void api<Branch[]>(`/practices/${practiceId}/locations`).then((nextBranches) => {
       if (!active) return;
-      setPractice(nextPractice);
       setBranches(nextBranches);
-      setProfessions(nextProfessions);
       const storedBranch = localStorage.getItem(SAVED_BRANCH);
       const nextBranch = nextBranches.find((branch) => branch.id === storedBranch)?.id ?? nextBranches[0]?.id ?? '';
       setBranchIdState(nextBranch);
     }).catch((cause: unknown) => {
-      if (active) setError(cause instanceof Error ? cause.message : 'Could not load practice settings.');
+      if (active) setError(cause instanceof Error ? cause.message : 'Could not load practice locations.');
+    });
+    void api<PracticeProfession[]>(`/practices/${practiceId}/professions`).then((nextProfessions) => {
+      if (active) setProfessions(nextProfessions);
+    }).catch((cause: unknown) => {
+      if (active) setError(cause instanceof Error ? cause.message : 'Could not load practice professions.');
     });
     return () => { active = false; };
   }, [practiceId]);
@@ -95,7 +109,7 @@ export function PracticeProvider({ children }: Readonly<{ children: ReactNode }>
       if (active) setPermissions(value);
     }).catch(() => {
       if (active) setPermissions({});
-    }).finally(() => { if (active) setPermissionsReady(true); });
+    });
     return () => { active = false; };
   }, [practiceId, practice, branchId]);
 
@@ -135,7 +149,10 @@ export function PracticeProvider({ children }: Readonly<{ children: ReactNode }>
   } : null, [session, practice, branches, professions, permissions, branchId, updatePractice, refreshProfessions]);
 
   if (!shouldLoadWorkspace) return <PracticeContext.Provider value={null}>{children}</PracticeContext.Provider>;
-  if (loading || (session && !practice && !error) || (practice && !permissionsReady)) return <div className="app-loading"><BrandLoader label="Loading your practice…"/></div>;
+  // Show the requested page as soon as its practice and branch data arrive.
+  // Permissions still load before links are exposed, while the API enforces
+  // every protected operation server-side.
+  if (loading || (session && !practice && !error)) return <div className="app-loading"><BrandLoader label="Loading your practice…"/></div>;
   if (!session) return <div className="app-loading">{error || 'Redirecting to sign in…'}</div>;
   if (membershipList.length > 1 && !practiceId) return <div className="app-loading">Choose a practice to continue.</div>;
   if (error && !practice) return <div className="app-loading"><div><strong>Practice could not load</strong><p>{error}</p><button className="button button-secondary" onClick={() => router.refresh()}>Try again</button></div></div>;

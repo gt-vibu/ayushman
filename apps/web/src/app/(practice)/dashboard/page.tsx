@@ -8,6 +8,7 @@ import { api, peekApiCache, practicePath } from '@/lib/api';
 import type { Appointment, Service, StaffMember } from '@/lib/types';
 import { appointmentStatusLabel } from '@/lib/types';
 import { EmptyState, ErrorState, LoadingState, StatusBadge } from '@/components/app-shell';
+import { SetupAssistant } from '@/components/setup-assistant';
 
 type DashboardData = { appointments: Appointment[]; services: Service[]; staff: StaffMember[] };
 const timeFmt = (timezone: string) => new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone: timezone });
@@ -40,6 +41,9 @@ export default function DashboardPage() {
   useEffect(() => { void load(); }, [load]);
   const firstName = session.user.fullName.split(' ')[0];
   const now = new Date();
+  const localHour = Number(new Intl.DateTimeFormat('en-US', { hour: 'numeric', hourCycle: 'h23', timeZone: timezone }).format(now));
+  const greeting = localHour < 12 ? 'Good morning' : localHour < 17 ? 'Good afternoon' : 'Good evening';
+  const greetingIcon = localHour < 12 ? '☀️' : localHour < 17 ? '🌤️' : '🌙';
   const appointments = useMemo(() => data.appointments.slice().sort((a, b) => a.startsAt.localeCompare(b.startsAt)), [data.appointments]);
   const complete = appointments.filter((item) => item.status === 'completed').length;
   const pastAppointments = appointments.filter((item) => new Date(item.startsAt) < now).reverse();
@@ -70,8 +74,9 @@ export default function DashboardPage() {
   const setDay = (delta: number) => setSelectedDate((current) => { const next = new Date(current); next.setDate(next.getDate() + delta); return next; });
 
   return <>
-    <div className="dashboard-welcome"><div><p className="eyebrow">{practice.name.toUpperCase()}</p><h1>Good morning, {firstName}. <span>☀️</span></h1><p>Here’s what’s happening at your practice today.</p></div><div className="dashboard-date-control"><button className="icon-button" aria-label="Previous day" onClick={() => setDay(-1)}><ArrowLeft size={16}/></button><strong>{new Intl.DateTimeFormat(undefined, { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric', timeZone: timezone }).format(selectedDate)}</strong><button className="icon-button" aria-label="Next day" onClick={() => setDay(1)}><ArrowRight size={16}/></button><button className="button button-secondary" onClick={() => setSelectedDate(new Date())}>Today</button>{permissions['appointments.create'] && <Link className="button button-primary" href="/appointments"><Plus size={15}/> New appointment</Link>}</div></div>
+    <div className="dashboard-welcome"><div><p className="eyebrow">{practice.name.toUpperCase()}</p><h1>{greeting}, {firstName}. <span>{greetingIcon}</span></h1><p>Here’s what’s happening at your practice today.</p></div><div className="dashboard-date-control"><button className="icon-button" aria-label="Previous day" onClick={() => setDay(-1)}><ArrowLeft size={16}/></button><strong>{new Intl.DateTimeFormat(undefined, { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric', timeZone: timezone }).format(selectedDate)}</strong><button className="icon-button" aria-label="Next day" onClick={() => setDay(1)}><ArrowRight size={16}/></button><button className="button button-secondary" onClick={() => setSelectedDate(new Date())}>Today</button>{permissions['appointments.create'] && <Link className="button button-primary" href="/appointments"><Plus size={15}/> New appointment</Link>}</div></div>
     <section className="stat-grid dashboard-stat-grid" aria-label="Practice summary">{stats.map(({ label, value, note, icon: Icon, tone, href }) => <Link className="stat-card" href={href} key={label}><span className={`stat-icon tone-${tone}`}><Icon size={19}/></span><div className="stat-main"><span className="stat-label">{label}</span><strong>{value}</strong><small>{note}</small></div><ArrowRight className="stat-arrow" size={16}/></Link>)}</section>
+    <SetupAssistant practice={practice} branchId={branchId} branches={branches} services={data.services} staff={data.staff} session={session}/>
     <div className="dashboard-grid dashboard-reference-grid">
       <section className="section-card schedule-card dashboard-schedule"><div className="section-heading"><div><p className="eyebrow">PAST & UPCOMING</p><h2>Schedule overview</h2><small className="dashboard-range-note">Past 7 days and next 14 days · {timezone}</small></div><div className="inline-actions"><span className="count-pill">{appointments.length} appointments</span><Link className="text-link" href="/calendar">Open calendar <ArrowRight size={14}/></Link></div></div>
         {loading ? <LoadingState/> : error ? <ErrorState message={error}/> : appointments.length === 0 ? <EmptyState title="No recent or upcoming appointments" description="Appointments from the past week and the next two weeks will appear here, grouped by date." icon={CalendarDays}/> : <div className="dashboard-appointment-groups">

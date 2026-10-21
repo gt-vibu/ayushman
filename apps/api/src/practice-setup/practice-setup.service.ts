@@ -187,6 +187,13 @@ export class PracticeSetupService {
       profiles.push(profile);
       profilesByUser.set(profile.userId, profiles);
     }
+    const profileLocationRows = await this.db.select({ userId: professionalLocations.userId, professionId: professionalLocations.practiceProfessionId, locationId: professionalLocations.locationId })
+      .from(professionalLocations).where(eq(professionalLocations.practiceId, practiceId));
+    const profileLocationsByKey = new Map<string, string[]>();
+    for (const row of profileLocationRows) {
+      const key = `${row.userId}:${row.professionId}`;
+      profileLocationsByKey.set(key, [...(profileLocationsByKey.get(key) ?? []), row.locationId]);
+    }
     const members = new Map<string, { membershipId: string; userId: string; email: string; fullName: string; status: string; roles: Set<string>; locations: Map<string, string> }>();
     for (const row of rows) {
       const member = members.get(row.membershipId) ?? {
@@ -199,7 +206,7 @@ export class PracticeSetupService {
     }
     return [...members.values()].map((member) => {
       const profiles = profilesByUser.get(member.userId) ?? [];
-      return { ...member, roles: [...member.roles], locations: [...member.locations].map(([id, name]) => ({ id, name })), professionalProfileIds: profiles.map((profile) => profile.professionId), professionalProfiles: profiles.map(({ userId: _userId, ...profile }) => profile) };
+      return { ...member, roles: [...member.roles], locations: [...member.locations].map(([id, name]) => ({ id, name })), professionalProfileIds: profiles.map((profile) => profile.professionId), professionalProfiles: profiles.map(({ userId: _userId, ...profile }) => ({ ...profile, locationIds: profileLocationsByKey.get(`${member.userId}:${profile.professionId}`) ?? [] })) };
     });
   }
 
@@ -354,6 +361,11 @@ export class PracticeSetupService {
         target: [professionalProfiles.practiceProfessionId, professionalProfiles.userId],
         set: { headline: input.headline, bio: input.bio, profileAttributes: input.profileAttributes, publicProfile: input.publicProfile, updatedAt: new Date() },
       }).returning();
+      await tx.delete(professionalLocations).where(and(
+        eq(professionalLocations.practiceId, practiceId),
+        eq(professionalLocations.practiceProfessionId, input.practiceProfessionId),
+        eq(professionalLocations.userId, professionalUserId),
+      ));
       if (locationsValid.length) {
         await tx.insert(professionalLocations).values(locationsValid.map((locationId, index) => ({
           practiceProfessionId: input.practiceProfessionId, practiceId, userId: professionalUserId, locationId, isPrimary: index === 0,

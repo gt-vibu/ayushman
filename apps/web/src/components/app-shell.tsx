@@ -4,9 +4,9 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Activity, CalendarDays, ClipboardList, FileText, LayoutDashboard,
-  Clock3, Leaf, MapPin, Menu, Search, Settings, Users, WalletCards, BriefcaseBusiness, X, Moon, Sun,
+  Clock3, Leaf, MapPin, Menu, Search, Settings, Users, WalletCards, BriefcaseBusiness, X, Moon, Sun, ChevronDown, UserRound, LogOut,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { usePractice } from '@/lib/practice-context';
 import { api } from '@/lib/api';
@@ -78,13 +78,21 @@ function PracticeFrame({ children }: Readonly<{ children: ReactNode }>) {
     if (search.trim()) router.push(`/clients?q=${encodeURIComponent(search.trim())}`);
   }
 
-  function warmRoute(href: string) {
+  const warmRoute = useCallback((href: string) => {
     router.prefetch(href);
     if (warmedRoutes.current.has(href)) return;
     warmedRoutes.current.add(href);
+    if (process.env.NODE_ENV === 'development') {
+      void fetch(href, { credentials: 'same-origin', cache: 'no-store' }).then((response) => response.arrayBuffer()).catch(() => undefined);
+    }
     const scope = branchId ? `?locationId=${encodeURIComponent(branchId)}` : '';
     const root = `/practices/${encodeURIComponent(practice.id)}`;
+    const dashboardFrom = new Date(); dashboardFrom.setHours(0, 0, 0, 0); dashboardFrom.setDate(dashboardFrom.getDate() - 7);
+    const dashboardTo = new Date(); dashboardTo.setHours(23, 59, 59, 999); dashboardTo.setDate(dashboardTo.getDate() + 14);
+    const dashboardQuery = new URLSearchParams({ from: dashboardFrom.toISOString(), to: dashboardTo.toISOString(), limit: '100' });
+    if (branchId) dashboardQuery.set('locationId', branchId);
     const routeData: Record<string, string[]> = {
+      '/dashboard': [`${root}/appointments?${dashboardQuery}`, `${root}/services${scope}`, `${root}/staff${scope}`],
       '/appointments': [`${root}${appointmentsQuery(branchId)}`, `${root}/staff${scope}`],
       '/calendar': [`${root}${appointmentsQuery(branchId, 7, 100)}`],
       '/availability': [`${root}/professions`, `${root}/availability/rules${scope}`],
@@ -100,7 +108,32 @@ function PracticeFrame({ children }: Readonly<{ children: ReactNode }>) {
     void Promise.all(requests).then(() => {
       if (!requests.length) warmedRoutes.current.delete(href);
     });
-  }
+  }, [branchId, practice.id, router]);
+
+  // Next.js disables router prefetching in development. Request each permitted
+  // route in the background so its page and client chunks compile before the
+  // first click. API data is warmed on hover or touch instead of loading every
+  // screen's data at startup.
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'development') return;
+    const routes = navigation.filter((item) => permissions[item.permission] && !item.later).map((item) => item.href);
+    let index = 0;
+    let timer = 0;
+    let cancelled = false;
+    const prefetchNext = async () => {
+      const href = routes[index++];
+      if (!href) return;
+      try {
+        const response = await fetch(href, { credentials: 'same-origin', cache: 'no-store' });
+        await response.arrayBuffer();
+      } catch {
+        // Route prewarming is best-effort; normal navigation reports errors.
+      }
+      if (!cancelled) timer = window.setTimeout(prefetchNext, 100);
+    };
+    timer = window.setTimeout(prefetchNext, 300);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [permissions]);
 
   return <div className="app-frame">
     {mobileOpen && <button className="mobile-backdrop" aria-label="Close navigation" onClick={() => setMobileOpen(false)} />}
@@ -117,9 +150,8 @@ function PracticeFrame({ children }: Readonly<{ children: ReactNode }>) {
           const visibleLabel = href === '/clients' && clientTerm ? clientTerm[0].toUpperCase() + clientTerm.slice(1) : label;
           return <div key={href}>{(index === 0 || visibleNavigation[index - 1].group !== group) && <span className="nav-section-label nav-group-label">{group}</span>}<Link prefetch={false} scroll={false} className={`nav-link ${selected ? 'nav-link-active' : ''}`} href={href} aria-current={selected ? 'page' : undefined} onMouseEnter={() => warmRoute(href)} onFocus={() => warmRoute(href)} onTouchStart={() => warmRoute(href)} onClick={(event) => {
             setMobileOpen(false);
-            // The app-router Link in the running bundle isn't intercepting these
-            // workspace clicks (the browser falls back to a document request).
-            // Use the app router hook directly so ordinary tab changes stay SPA.
+            // Keep workspace tab changes in the App Router instead of a
+            // document request, which previously caused a full reload.
             if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
             event.preventDefault();
             router.push(href, { scroll: false });
@@ -128,13 +160,6 @@ function PracticeFrame({ children }: Readonly<{ children: ReactNode }>) {
           </Link></div>;
         })}
       </nav>
-      <div className="sidebar-bottom">
-        <button className="profile-row" onClick={() => void logout()} title="Sign out">
-          <span className="avatar">{session.user.fullName.slice(0, 1).toUpperCase()}</span>
-          <span className="profile-copy"><strong>{session.user.fullName}</strong><small>{session.practices[0]?.roles.join(' · ') || 'Team member'}</small></span>
-          <span className="sign-out-label">Sign out</span>
-        </button>
-      </div>
     </aside>
     <section className="app-main">
       <header className="topbar">
@@ -144,7 +169,18 @@ function PracticeFrame({ children }: Readonly<{ children: ReactNode }>) {
           <button type="button" className="icon-button theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${darkMode ? 'light' : 'dark'} theme`} title={`Switch to ${darkMode ? 'light' : 'dark'} theme`}>{darkMode ? <Sun size={16}/> : <Moon size={16}/>}</button>
           {permissions['appointments.read'] && <AppointmentNotifications/>}
           {branches.length ? <div className="branch-context"><MapPin size={15}/><Select ariaLabel="Select branch" value={branchId} onChange={setBranchId} searchPlaceholder="Find a location…" options={[...(canViewEveryBranch ? [{ value: '', label: 'All branches' }] : []), ...branches.map((branch) => ({ value: branch.id, label: branch.name }))]} /></div> : <div className="context-pill"><span className="context-dot"/>{practice.name}</div>}
-          <span className="top-user"><span className="avatar avatar-small">{session.user.fullName.slice(0, 1).toUpperCase()}</span><span><strong>{session.user.fullName}</strong><small>{session.practices[0]?.roles.includes('owner') ? 'Practice owner' : 'Practice team'}</small></span></span>
+          <details className="account-menu">
+            <summary className="top-user" aria-label="Open account menu">
+              <span className="avatar avatar-small">{session.user.fullName.slice(0, 1).toUpperCase()}</span>
+              <span><strong>{session.user.fullName}</strong><small>{activeMembership?.roles.includes('owner') ? 'Practice owner' : activeMembership?.roles.includes('admin') ? 'Practice administrator' : 'Practice team'}</small></span>
+              <ChevronDown size={15} className="account-menu-chevron" aria-hidden="true"/>
+            </summary>
+            <div className="account-menu-popover" role="menu">
+              <div className="account-menu-identity"><strong>{session.user.fullName}</strong><small>{session.user.email}</small></div>
+              <button type="button" role="menuitem" onClick={(event) => { event.currentTarget.closest('details')?.removeAttribute('open'); router.push('/profile', { scroll: false }); }}><UserRound size={16}/>Profile</button>
+              <button type="button" role="menuitem" className="account-menu-signout" onClick={() => void logout()}><LogOut size={16}/>Sign out</button>
+            </div>
+          </details>
         </div>
       </header>
       <main className="page-content">{children}</main>
