@@ -1,0 +1,4 @@
+ALTER TABLE "appointments" ADD COLUMN "buffer_before_minutes_snapshot" integer NOT NULL;--> statement-breakpoint
+ALTER TABLE "appointments" ADD COLUMN "buffer_after_minutes_snapshot" integer NOT NULL;--> statement-breakpoint
+ALTER TABLE "appointments" ADD CONSTRAINT "appointments_duration_matches_snapshot_check" CHECK ("appointments"."ends_at" = "appointments"."starts_at" + ("appointments"."duration_minutes_snapshot" * interval '1 minute'));--> statement-breakpoint
+ALTER TABLE "appointments" ADD CONSTRAINT "appointments_buffers_snapshot_check" CHECK ("appointments"."buffer_before_minutes_snapshot" >= 0 AND "appointments"."buffer_after_minutes_snapshot" >= 0 AND "appointments"."reserved_starts_at" = "appointments"."starts_at" - ("appointments"."buffer_before_minutes_snapshot" * interval '1 minute') AND "appointments"."reserved_ends_at" = "appointments"."ends_at" + ("appointments"."buffer_after_minutes_snapshot" * interval '1 minute'));

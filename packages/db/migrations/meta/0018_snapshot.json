@@ -1,0 +1,6311 @@
+{
+  "id": "cb967b1a-20d0-438b-8904-4918c8edefd4",
+  "prevId": "fa424c8a-3ca3-435b-9fd3-77b8f04fff7b",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.customer_profiles": {
+      "name": "customer_profiles",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "phone": {
+          "name": "phone",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "customer_profiles_user_id_users_id_fk": {
+          "name": "customer_profiles_user_id_users_id_fk",
+          "tableFrom": "customer_profiles",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.locations": {
+      "name": "locations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(140)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "address": {
+          "name": "address",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "timezone": {
+          "name": "timezone",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "locations_practice_name_uq": {
+          "name": "locations_practice_name_uq",
+          "columns": [
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "locations_practice_active_idx": {
+          "name": "locations_practice_active_idx",
+          "columns": [
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "active",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "locations_id_practice_uq": {
+          "name": "locations_id_practice_uq",
+          "columns": [
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "locations_practice_id_uq": {
+          "name": "locations_practice_id_uq",
+          "columns": [
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "locations_practice_id_practices_id_fk": {
+          "name": "locations_practice_id_practices_id_fk",
+          "tableFrom": "locations",
+          "tableTo": "practices",
+          "columnsFrom": [
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.practice_membership_locations": {
+      "name": "practice_membership_locations",
+      "schema": "",
+      "columns": {
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "membership_id": {
+          "name": "membership_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "location_id": {
+          "name": "location_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "membership_locations_location_idx": {
+          "name": "membership_locations_location_idx",
+          "columns": [
+            {
+              "expression": "location_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "membership_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "membership_locations_membership_practice_fk": {
+          "name": "membership_locations_membership_practice_fk",
+          "tableFrom": "practice_membership_locations",
+          "tableTo": "practice_memberships",
+          "columnsFrom": [
+            "practice_id",
+            "membership_id"
+          ],
+          "columnsTo": [
+            "practice_id",
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "membership_locations_location_practice_fk": {
+          "name": "membership_locations_location_practice_fk",
+          "tableFrom": "practice_membership_locations",
+          "tableTo": "locations",
+          "columnsFrom": [
+            "location_id",
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id",
+            "practice_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "practice_membership_locations_membership_id_location_id_pk": {
+          "name": "practice_membership_locations_membership_id_location_id_pk",
+          "columns": [
+            "membership_id",
+            "location_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.practice_membership_roles": {
+      "name": "practice_membership_roles",
+      "schema": "",
+      "columns": {
+        "membership_id": {
+          "name": "membership_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "membership_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "practice_membership_roles_membership_id_practice_memberships_id_fk": {
+          "name": "practice_membership_roles_membership_id_practice_memberships_id_fk",
+          "tableFrom": "practice_membership_roles",
+          "tableTo": "practice_memberships",
+          "columnsFrom": [
+            "membership_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "practice_membership_roles_membership_id_role_pk": {
+          "name": "practice_membership_roles_membership_id_role_pk",
+          "columns": [
+            "membership_id",
+            "role"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.practice_memberships": {
+      "name": "practice_memberships",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "membership_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'active'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "practice_memberships_practice_user_uq": {
+          "name": "practice_memberships_practice_user_uq",
+          "columns": [
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "practice_memberships_practice_id_uq": {
+          "name": "practice_memberships_practice_id_uq",
+          "columns": [
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "practice_memberships_user_idx": {
+          "name": "practice_memberships_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "practice_memberships_practice_id_practices_id_fk": {
+          "name": "practice_memberships_practice_id_practices_id_fk",
+          "tableFrom": "practice_memberships",
+          "tableTo": "practices",
+          "columnsFrom": [
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "practice_memberships_user_id_users_id_fk": {
+          "name": "practice_memberships_user_id_users_id_fk",
+          "tableFrom": "practice_memberships",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.practice_professions": {
+      "name": "practice_professions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "profession_code": {
+          "name": "profession_code",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "enabled": {
+          "name": "enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "term_overrides": {
+          "name": "term_overrides",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "practice_professions_code_uq": {
+          "name": "practice_professions_code_uq",
+          "columns": [
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "profession_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "practice_professions_id_practice_uq": {
+          "name": "practice_professions_id_practice_uq",
+          "columns": [
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "practice_professions_practice_id_practices_id_fk": {
+          "name": "practice_professions_practice_id_practices_id_fk",
+          "tableFrom": "practice_professions",
+          "tableTo": "practices",
+          "columnsFrom": [
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "practice_profession_code_format_check": {
+          "name": "practice_profession_code_format_check",
+          "value": "\"practice_professions\".\"profession_code\" ~ '^[a-z0-9]+(-[a-z0-9]+)*$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.practices": {
+      "name": "practices",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(180)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "slug": {
+          "name": "slug",
+          "type": "varchar(80)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone": {
+          "name": "phone",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "website": {
+          "name": "website",
+          "type": "varchar(500)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "timezone": {
+          "name": "timezone",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Asia/Kolkata'"
+        },
+        "currency": {
+          "name": "currency",
+          "type": "varchar(3)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'INR'"
+        },
+        "public_booking_enabled": {
+          "name": "public_booking_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "public_listing_enabled": {
+          "name": "public_listing_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "practices_slug_normalized_uq": {
+          "name": "practices_slug_normalized_uq",
+          "columns": [
+            {
+              "expression": "lower(\"slug\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "practices_public_discovery_idx": {
+          "name": "practices_public_discovery_idx",
+          "columns": [
+            {
+              "expression": "active",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "public_listing_enabled",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "slug",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "practices_currency_length_check": {
+          "name": "practices_currency_length_check",
+          "value": "length(\"practices\".\"currency\") = 3"
+        },
+        "practices_slug_format_check": {
+          "name": "practices_slug_format_check",
+          "value": "\"practices\".\"slug\" ~ '^[a-z0-9]+(-[a-z0-9]+)*$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.profession_catalog": {
+      "name": "profession_catalog",
+      "schema": "",
+      "columns": {
+        "code": {
+          "name": "code",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "default_terms": {
+          "name": "default_terms",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "profile_fields": {
+          "name": "profile_fields",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.sessions": {
+      "name": "sessions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token_hash": {
+          "name": "token_hash",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "sessions_user_expiry_idx": {
+          "name": "sessions_user_expiry_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "sessions_user_id_users_id_fk": {
+          "name": "sessions_user_id_users_id_fk",
+          "tableFrom": "sessions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "sessions_token_hash_unique": {
+          "name": "sessions_token_hash_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "token_hash"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(320)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "full_name": {
+          "name": "full_name",
+          "type": "varchar(160)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "password_hash": {
+          "name": "password_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email_verified_at": {
+          "name": "email_verified_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "disabled_at": {
+          "name": "disabled_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "users_email_normalized_uq": {
+          "name": "users_email_normalized_uq",
+          "columns": [
+            {
+              "expression": "lower(\"email\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.location_professions": {
+      "name": "location_professions",
+      "schema": "",
+      "columns": {
+        "practice_profession_id": {
+          "name": "practice_profession_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "location_id": {
+          "name": "location_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "enabled": {
+          "name": "enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "location_professions_location_idx": {
+          "name": "location_professions_location_idx",
+          "columns": [
+            {
+              "expression": "location_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "location_professions_practice_profession_id_practice_professions_id_fk": {
+          "name": "location_professions_practice_profession_id_practice_professions_id_fk",
+          "tableFrom": "location_professions",
+          "tableTo": "practice_professions",
+          "columnsFrom": [
+            "practice_profession_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "location_professions_location_id_locations_id_fk": {
+          "name": "location_professions_location_id_locations_id_fk",
+          "tableFrom": "location_professions",
+          "tableTo": "locations",
+          "columnsFrom": [
+            "location_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "location_professions_profession_practice_fk": {
+          "name": "location_professions_profession_practice_fk",
+          "tableFrom": "location_professions",
+          "tableTo": "practice_professions",
+          "columnsFrom": [
+            "practice_profession_id",
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id",
+            "practice_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "location_professions_location_practice_fk": {
+          "name": "location_professions_location_practice_fk",
+          "tableFrom": "location_professions",
+          "tableTo": "locations",
+          "columnsFrom": [
+            "location_id",
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id",
+            "practice_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "location_professions_practice_profession_id_location_id_pk": {
+          "name": "location_professions_practice_profession_id_location_id_pk",
+          "columns": [
+            "practice_profession_id",
+            "location_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.professional_locations": {
+      "name": "professional_locations",
+      "schema": "",
+      "columns": {
+        "practice_profession_id": {
+          "name": "practice_profession_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "location_id": {
+          "name": "location_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_primary": {
+          "name": "is_primary",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "professional_locations_user_idx": {
+          "name": "professional_locations_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "location_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "professional_locations_location_idx": {
+          "name": "professional_locations_location_idx",
+          "columns": [
+            {
+              "expression": "location_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "professional_locations_practice_profession_id_practice_professions_id_fk": {
+          "name": "professional_locations_practice_profession_id_practice_professions_id_fk",
+          "tableFrom": "professional_locations",
+          "tableTo": "practice_professions",
+          "columnsFrom": [
+            "practice_profession_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "professional_locations_user_id_users_id_fk": {
+          "name": "professional_locations_user_id_users_id_fk",
+          "tableFrom": "professional_locations",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "professional_locations_location_id_locations_id_fk": {
+          "name": "professional_locations_location_id_locations_id_fk",
+          "tableFrom": "professional_locations",
+          "tableTo": "locations",
+          "columnsFrom": [
+            "location_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "professional_locations_profile_fk": {
+          "name": "professional_locations_profile_fk",
+          "tableFrom": "professional_locations",
+          "tableTo": "professional_profiles",
+          "columnsFrom": [
+            "practice_profession_id",
+            "user_id"
+          ],
+          "columnsTo": [
+            "practice_profession_id",
+            "user_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "professional_locations_profession_practice_fk": {
+          "name": "professional_locations_profession_practice_fk",
+          "tableFrom": "professional_locations",
+          "tableTo": "practice_professions",
+          "columnsFrom": [
+            "practice_profession_id",
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id",
+            "practice_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "professional_locations_location_practice_fk": {
+          "name": "professional_locations_location_practice_fk",
+          "tableFrom": "professional_locations",
+          "tableTo": "locations",
+          "columnsFrom": [
+            "location_id",
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id",
+            "practice_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "professional_locations_branch_profession_fk": {
+          "name": "professional_locations_branch_profession_fk",
+          "tableFrom": "professional_locations",
+          "tableTo": "location_professions",
+          "columnsFrom": [
+            "practice_profession_id",
+            "location_id"
+          ],
+          "columnsTo": [
+            "practice_profession_id",
+            "location_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "professional_locations_membership_fk": {
+          "name": "professional_locations_membership_fk",
+          "tableFrom": "professional_locations",
+          "tableTo": "practice_memberships",
+          "columnsFrom": [
+            "practice_id",
+            "user_id"
+          ],
+          "columnsTo": [
+            "practice_id",
+            "user_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "professional_locations_practice_profession_id_user_id_location_id_pk": {
+          "name": "professional_locations_practice_profession_id_user_id_location_id_pk",
+          "columns": [
+            "practice_profession_id",
+            "user_id",
+            "location_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.professional_profiles": {
+      "name": "professional_profiles",
+      "schema": "",
+      "columns": {
+        "practice_profession_id": {
+          "name": "practice_profession_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "headline": {
+          "name": "headline",
+          "type": "varchar(160)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bio": {
+          "name": "bio",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "profile_attributes": {
+          "name": "profile_attributes",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "public_profile": {
+          "name": "public_profile",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "professional_profiles_user_idx": {
+          "name": "professional_profiles_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "public_profile",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "professional_profiles_public_search_idx": {
+          "name": "professional_profiles_public_search_idx",
+          "columns": [
+            {
+              "expression": "practice_profession_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "public_profile",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "professional_profiles_practice_profession_id_practice_professions_id_fk": {
+          "name": "professional_profiles_practice_profession_id_practice_professions_id_fk",
+          "tableFrom": "professional_profiles",
+          "tableTo": "practice_professions",
+          "columnsFrom": [
+            "practice_profession_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "professional_profiles_user_id_users_id_fk": {
+          "name": "professional_profiles_user_id_users_id_fk",
+          "tableFrom": "professional_profiles",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "professional_profiles_profession_practice_fk": {
+          "name": "professional_profiles_profession_practice_fk",
+          "tableFrom": "professional_profiles",
+          "tableTo": "practice_professions",
+          "columnsFrom": [
+            "practice_profession_id",
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id",
+            "practice_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "professional_profiles_membership_fk": {
+          "name": "professional_profiles_membership_fk",
+          "tableFrom": "professional_profiles",
+          "tableTo": "practice_memberships",
+          "columnsFrom": [
+            "practice_id",
+            "user_id"
+          ],
+          "columnsTo": [
+            "practice_id",
+            "user_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "professional_profiles_practice_profession_id_user_id_pk": {
+          "name": "professional_profiles_practice_profession_id_user_id_pk",
+          "columns": [
+            "practice_profession_id",
+            "user_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.service_locations": {
+      "name": "service_locations",
+      "schema": "",
+      "columns": {
+        "service_id": {
+          "name": "service_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "practice_profession_id": {
+          "name": "practice_profession_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "location_id": {
+          "name": "location_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "service_locations_location_idx": {
+          "name": "service_locations_location_idx",
+          "columns": [
+            {
+              "expression": "location_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "service_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "service_locations_service_practice_fk": {
+          "name": "service_locations_service_practice_fk",
+          "tableFrom": "service_locations",
+          "tableTo": "services",
+          "columnsFrom": [
+            "service_id",
+            "practice_id",
+            "practice_profession_id"
+          ],
+          "columnsTo": [
+            "id",
+            "practice_id",
+            "practice_profession_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "service_locations_location_practice_fk": {
+          "name": "service_locations_location_practice_fk",
+          "tableFrom": "service_locations",
+          "tableTo": "locations",
+          "columnsFrom": [
+            "location_id",
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id",
+            "practice_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "service_locations_profession_enabled_fk": {
+          "name": "service_locations_profession_enabled_fk",
+          "tableFrom": "service_locations",
+          "tableTo": "location_professions",
+          "columnsFrom": [
+            "practice_profession_id",
+            "location_id"
+          ],
+          "columnsTo": [
+            "practice_profession_id",
+            "location_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "service_locations_service_id_location_id_pk": {
+          "name": "service_locations_service_id_location_id_pk",
+          "columns": [
+            "service_id",
+            "location_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.service_professionals": {
+      "name": "service_professionals",
+      "schema": "",
+      "columns": {
+        "service_id": {
+          "name": "service_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "practice_profession_id": {
+          "name": "practice_profession_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "professional_user_id": {
+          "name": "professional_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "service_professionals_professional_idx": {
+          "name": "service_professionals_professional_idx",
+          "columns": [
+            {
+              "expression": "professional_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "service_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "service_professionals_assignment_uq": {
+          "name": "service_professionals_assignment_uq",
+          "columns": [
+            {
+              "expression": "service_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "professional_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "service_professionals_service_practice_fk": {
+          "name": "service_professionals_service_practice_fk",
+          "tableFrom": "service_professionals",
+          "tableTo": "services",
+          "columnsFrom": [
+            "service_id",
+            "practice_id",
+            "practice_profession_id"
+          ],
+          "columnsTo": [
+            "id",
+            "practice_id",
+            "practice_profession_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "service_professionals_profile_fk": {
+          "name": "service_professionals_profile_fk",
+          "tableFrom": "service_professionals",
+          "tableTo": "professional_profiles",
+          "columnsFrom": [
+            "practice_profession_id",
+            "professional_user_id"
+          ],
+          "columnsTo": [
+            "practice_profession_id",
+            "user_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "service_professionals_membership_fk": {
+          "name": "service_professionals_membership_fk",
+          "tableFrom": "service_professionals",
+          "tableTo": "practice_memberships",
+          "columnsFrom": [
+            "practice_id",
+            "professional_user_id"
+          ],
+          "columnsTo": [
+            "practice_id",
+            "user_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "service_professionals_service_id_professional_user_id_pk": {
+          "name": "service_professionals_service_id_professional_user_id_pk",
+          "columns": [
+            "service_id",
+            "professional_user_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.services": {
+      "name": "services",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "practice_profession_id": {
+          "name": "practice_profession_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(160)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "duration_minutes": {
+          "name": "duration_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "buffer_before_minutes": {
+          "name": "buffer_before_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "buffer_after_minutes": {
+          "name": "buffer_after_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "price_minor": {
+          "name": "price_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "varchar(3)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'INR'"
+        },
+        "online_bookable": {
+          "name": "online_bookable",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "services_practice_active_idx": {
+          "name": "services_practice_active_idx",
+          "columns": [
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "active",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "online_bookable",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "services_profession_active_idx": {
+          "name": "services_profession_active_idx",
+          "columns": [
+            {
+              "expression": "practice_profession_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "active",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "services_id_practice_uq": {
+          "name": "services_id_practice_uq",
+          "columns": [
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "services_id_practice_profession_uq": {
+          "name": "services_id_practice_profession_uq",
+          "columns": [
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "practice_profession_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "services_practice_id_practices_id_fk": {
+          "name": "services_practice_id_practices_id_fk",
+          "tableFrom": "services",
+          "tableTo": "practices",
+          "columnsFrom": [
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "services_practice_profession_id_practice_professions_id_fk": {
+          "name": "services_practice_profession_id_practice_professions_id_fk",
+          "tableFrom": "services",
+          "tableTo": "practice_professions",
+          "columnsFrom": [
+            "practice_profession_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "services_profession_practice_fk": {
+          "name": "services_profession_practice_fk",
+          "tableFrom": "services",
+          "tableTo": "practice_professions",
+          "columnsFrom": [
+            "practice_profession_id",
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id",
+            "practice_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "services_duration_positive_check": {
+          "name": "services_duration_positive_check",
+          "value": "\"services\".\"duration_minutes\" > 0"
+        },
+        "services_buffers_nonnegative_check": {
+          "name": "services_buffers_nonnegative_check",
+          "value": "\"services\".\"buffer_before_minutes\" >= 0 AND \"services\".\"buffer_after_minutes\" >= 0"
+        },
+        "services_price_nonnegative_check": {
+          "name": "services_price_nonnegative_check",
+          "value": "\"services\".\"price_minor\" IS NULL OR \"services\".\"price_minor\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.availability_exceptions": {
+      "name": "availability_exceptions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "location_id": {
+          "name": "location_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "professional_user_id": {
+          "name": "professional_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "practice_profession_id": {
+          "name": "practice_profession_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "date": {
+          "name": "date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "exception_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "start_minute": {
+          "name": "start_minute",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "end_minute": {
+          "name": "end_minute",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "varchar(240)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "availability_exceptions_practice_date_idx": {
+          "name": "availability_exceptions_practice_date_idx",
+          "columns": [
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "availability_exceptions_location_date_idx": {
+          "name": "availability_exceptions_location_date_idx",
+          "columns": [
+            {
+              "expression": "location_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "availability_exceptions_professional_date_idx": {
+          "name": "availability_exceptions_professional_date_idx",
+          "columns": [
+            {
+              "expression": "professional_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "availability_exceptions_practice_id_practices_id_fk": {
+          "name": "availability_exceptions_practice_id_practices_id_fk",
+          "tableFrom": "availability_exceptions",
+          "tableTo": "practices",
+          "columnsFrom": [
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "availability_exceptions_location_id_locations_id_fk": {
+          "name": "availability_exceptions_location_id_locations_id_fk",
+          "tableFrom": "availability_exceptions",
+          "tableTo": "locations",
+          "columnsFrom": [
+            "location_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "availability_exceptions_professional_user_id_users_id_fk": {
+          "name": "availability_exceptions_professional_user_id_users_id_fk",
+          "tableFrom": "availability_exceptions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "professional_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "availability_exceptions_practice_profession_id_practice_professions_id_fk": {
+          "name": "availability_exceptions_practice_profession_id_practice_professions_id_fk",
+          "tableFrom": "availability_exceptions",
+          "tableTo": "practice_professions",
+          "columnsFrom": [
+            "practice_profession_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "availability_exceptions_location_practice_fk": {
+          "name": "availability_exceptions_location_practice_fk",
+          "tableFrom": "availability_exceptions",
+          "tableTo": "locations",
+          "columnsFrom": [
+            "location_id",
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id",
+            "practice_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "availability_exceptions_profession_practice_fk": {
+          "name": "availability_exceptions_profession_practice_fk",
+          "tableFrom": "availability_exceptions",
+          "tableTo": "practice_professions",
+          "columnsFrom": [
+            "practice_profession_id",
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id",
+            "practice_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "availability_exceptions_professional_membership_fk": {
+          "name": "availability_exceptions_professional_membership_fk",
+          "tableFrom": "availability_exceptions",
+          "tableTo": "practice_memberships",
+          "columnsFrom": [
+            "practice_id",
+            "professional_user_id"
+          ],
+          "columnsTo": [
+            "practice_id",
+            "user_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "availability_exceptions_professional_profile_fk": {
+          "name": "availability_exceptions_professional_profile_fk",
+          "tableFrom": "availability_exceptions",
+          "tableTo": "professional_profiles",
+          "columnsFrom": [
+            "practice_profession_id",
+            "professional_user_id"
+          ],
+          "columnsTo": [
+            "practice_profession_id",
+            "user_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "availability_exceptions_professional_location_fk": {
+          "name": "availability_exceptions_professional_location_fk",
+          "tableFrom": "availability_exceptions",
+          "tableTo": "professional_locations",
+          "columnsFrom": [
+            "practice_profession_id",
+            "professional_user_id",
+            "location_id"
+          ],
+          "columnsTo": [
+            "practice_profession_id",
+            "user_id",
+            "location_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "exception_time_pair_check": {
+          "name": "exception_time_pair_check",
+          "value": "(\"availability_exceptions\".\"start_minute\" IS NULL AND \"availability_exceptions\".\"end_minute\" IS NULL) OR (\"availability_exceptions\".\"start_minute\" >= 0 AND \"availability_exceptions\".\"start_minute\" < \"availability_exceptions\".\"end_minute\" AND \"availability_exceptions\".\"end_minute\" <= 1440)"
+        },
+        "exception_scope_check": {
+          "name": "exception_scope_check",
+          "value": "(\"availability_exceptions\".\"location_id\" IS NOT NULL OR \"availability_exceptions\".\"professional_user_id\" IS NOT NULL) AND ((\"availability_exceptions\".\"professional_user_id\" IS NULL AND \"availability_exceptions\".\"practice_profession_id\" IS NULL) OR (\"availability_exceptions\".\"professional_user_id\" IS NOT NULL AND \"availability_exceptions\".\"practice_profession_id\" IS NOT NULL))"
+        },
+        "exception_extra_hours_range_check": {
+          "name": "exception_extra_hours_range_check",
+          "value": "\"availability_exceptions\".\"kind\" <> 'extra_hours' OR (\"availability_exceptions\".\"start_minute\" IS NOT NULL AND \"availability_exceptions\".\"end_minute\" IS NOT NULL)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.availability_rules": {
+      "name": "availability_rules",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scope": {
+          "name": "scope",
+          "type": "availability_scope",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "practice_profession_id": {
+          "name": "practice_profession_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "location_id": {
+          "name": "location_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "professional_user_id": {
+          "name": "professional_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "weekday": {
+          "name": "weekday",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "start_minute": {
+          "name": "start_minute",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "end_minute": {
+          "name": "end_minute",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "slot_interval_minutes": {
+          "name": "slot_interval_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 30
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "availability_lookup_idx": {
+          "name": "availability_lookup_idx",
+          "columns": [
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "weekday",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "active",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "availability_location_idx": {
+          "name": "availability_location_idx",
+          "columns": [
+            {
+              "expression": "location_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "weekday",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "availability_professional_idx": {
+          "name": "availability_professional_idx",
+          "columns": [
+            {
+              "expression": "professional_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "weekday",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "availability_rules_practice_id_practices_id_fk": {
+          "name": "availability_rules_practice_id_practices_id_fk",
+          "tableFrom": "availability_rules",
+          "tableTo": "practices",
+          "columnsFrom": [
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "availability_rules_practice_profession_id_practice_professions_id_fk": {
+          "name": "availability_rules_practice_profession_id_practice_professions_id_fk",
+          "tableFrom": "availability_rules",
+          "tableTo": "practice_professions",
+          "columnsFrom": [
+            "practice_profession_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "availability_rules_location_id_locations_id_fk": {
+          "name": "availability_rules_location_id_locations_id_fk",
+          "tableFrom": "availability_rules",
+          "tableTo": "locations",
+          "columnsFrom": [
+            "location_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "availability_rules_professional_user_id_users_id_fk": {
+          "name": "availability_rules_professional_user_id_users_id_fk",
+          "tableFrom": "availability_rules",
+          "tableTo": "users",
+          "columnsFrom": [
+            "professional_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "availability_location_practice_fk": {
+          "name": "availability_location_practice_fk",
+          "tableFrom": "availability_rules",
+          "tableTo": "locations",
+          "columnsFrom": [
+            "location_id",
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id",
+            "practice_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "availability_profession_practice_fk": {
+          "name": "availability_profession_practice_fk",
+          "tableFrom": "availability_rules",
+          "tableTo": "practice_professions",
+          "columnsFrom": [
+            "practice_profession_id",
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id",
+            "practice_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "availability_professional_membership_fk": {
+          "name": "availability_professional_membership_fk",
+          "tableFrom": "availability_rules",
+          "tableTo": "practice_memberships",
+          "columnsFrom": [
+            "practice_id",
+            "professional_user_id"
+          ],
+          "columnsTo": [
+            "practice_id",
+            "user_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "availability_professional_profile_fk": {
+          "name": "availability_professional_profile_fk",
+          "tableFrom": "availability_rules",
+          "tableTo": "professional_profiles",
+          "columnsFrom": [
+            "practice_profession_id",
+            "professional_user_id"
+          ],
+          "columnsTo": [
+            "practice_profession_id",
+            "user_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "availability_professional_location_fk": {
+          "name": "availability_professional_location_fk",
+          "tableFrom": "availability_rules",
+          "tableTo": "professional_locations",
+          "columnsFrom": [
+            "practice_profession_id",
+            "professional_user_id",
+            "location_id"
+          ],
+          "columnsTo": [
+            "practice_profession_id",
+            "user_id",
+            "location_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "availability_weekday_check": {
+          "name": "availability_weekday_check",
+          "value": "\"availability_rules\".\"weekday\" BETWEEN 0 AND 6"
+        },
+        "availability_time_range_check": {
+          "name": "availability_time_range_check",
+          "value": "\"availability_rules\".\"start_minute\" >= 0 AND \"availability_rules\".\"start_minute\" < \"availability_rules\".\"end_minute\" AND \"availability_rules\".\"end_minute\" <= 1440"
+        },
+        "availability_interval_check": {
+          "name": "availability_interval_check",
+          "value": "\"availability_rules\".\"slot_interval_minutes\" BETWEEN 5 AND 240"
+        },
+        "availability_scope_refs_check": {
+          "name": "availability_scope_refs_check",
+          "value": "(\"availability_rules\".\"scope\" = 'practice' AND \"availability_rules\".\"location_id\" IS NULL AND \"availability_rules\".\"professional_user_id\" IS NULL AND \"availability_rules\".\"practice_profession_id\" IS NULL) OR (\"availability_rules\".\"scope\" = 'location' AND \"availability_rules\".\"location_id\" IS NOT NULL AND \"availability_rules\".\"professional_user_id\" IS NULL AND \"availability_rules\".\"practice_profession_id\" IS NULL) OR (\"availability_rules\".\"scope\" = 'professional' AND \"availability_rules\".\"location_id\" IS NULL AND \"availability_rules\".\"professional_user_id\" IS NOT NULL AND \"availability_rules\".\"practice_profession_id\" IS NOT NULL) OR (\"availability_rules\".\"scope\" = 'professional_location' AND \"availability_rules\".\"location_id\" IS NOT NULL AND \"availability_rules\".\"professional_user_id\" IS NOT NULL AND \"availability_rules\".\"practice_profession_id\" IS NOT NULL)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.booking_policies": {
+      "name": "booking_policies",
+      "schema": "",
+      "columns": {
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "max_advance_days": {
+          "name": "max_advance_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 30
+        },
+        "min_notice_minutes": {
+          "name": "min_notice_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 120
+        },
+        "cancellation_cutoff_minutes": {
+          "name": "cancellation_cutoff_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 360
+        },
+        "guest_booking_enabled": {
+          "name": "guest_booking_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "patient_cancellation_enabled": {
+          "name": "patient_cancellation_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "patient_rescheduling_enabled": {
+          "name": "patient_rescheduling_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "rescheduling_cutoff_minutes": {
+          "name": "rescheduling_cutoff_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 360
+        },
+        "email_notifications_enabled": {
+          "name": "email_notifications_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "require_prepayment": {
+          "name": "require_prepayment",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "confirmation_mode": {
+          "name": "confirmation_mode",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'immediate'"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "booking_policies_practice_id_practices_id_fk": {
+          "name": "booking_policies_practice_id_practices_id_fk",
+          "tableFrom": "booking_policies",
+          "tableTo": "practices",
+          "columnsFrom": [
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "booking_policy_advance_check": {
+          "name": "booking_policy_advance_check",
+          "value": "\"booking_policies\".\"max_advance_days\" BETWEEN 1 AND 365"
+        },
+        "booking_policy_notice_check": {
+          "name": "booking_policy_notice_check",
+          "value": "\"booking_policies\".\"min_notice_minutes\" >= 0"
+        },
+        "booking_policy_cancel_check": {
+          "name": "booking_policy_cancel_check",
+          "value": "\"booking_policies\".\"cancellation_cutoff_minutes\" >= 0"
+        },
+        "booking_policy_reschedule_check": {
+          "name": "booking_policy_reschedule_check",
+          "value": "\"booking_policies\".\"rescheduling_cutoff_minutes\" >= 0"
+        },
+        "booking_policy_confirmation_check": {
+          "name": "booking_policy_confirmation_check",
+          "value": "\"booking_policies\".\"confirmation_mode\" IN ('immediate', 'approval')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.appointment_events": {
+      "name": "appointment_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "appointment_id": {
+          "name": "appointment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "from_status": {
+          "name": "from_status",
+          "type": "appointment_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "to_status": {
+          "name": "to_status",
+          "type": "appointment_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_user_id": {
+          "name": "actor_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "varchar(500)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "occurred_at": {
+          "name": "occurred_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "appointment_events_appointment_time_idx": {
+          "name": "appointment_events_appointment_time_idx",
+          "columns": [
+            {
+              "expression": "appointment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "occurred_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "appointment_events_practice_time_idx": {
+          "name": "appointment_events_practice_time_idx",
+          "columns": [
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "occurred_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "appointment_events_practice_id_practices_id_fk": {
+          "name": "appointment_events_practice_id_practices_id_fk",
+          "tableFrom": "appointment_events",
+          "tableTo": "practices",
+          "columnsFrom": [
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "appointment_events_appointment_id_appointments_id_fk": {
+          "name": "appointment_events_appointment_id_appointments_id_fk",
+          "tableFrom": "appointment_events",
+          "tableTo": "appointments",
+          "columnsFrom": [
+            "appointment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "appointment_events_actor_user_id_users_id_fk": {
+          "name": "appointment_events_actor_user_id_users_id_fk",
+          "tableFrom": "appointment_events",
+          "tableTo": "users",
+          "columnsFrom": [
+            "actor_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "appointment_events_appointment_practice_fk": {
+          "name": "appointment_events_appointment_practice_fk",
+          "tableFrom": "appointment_events",
+          "tableTo": "appointments",
+          "columnsFrom": [
+            "appointment_id",
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id",
+            "practice_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.appointment_notifications": {
+      "name": "appointment_notifications",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "recipient_user_id": {
+          "name": "recipient_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "appointment_id": {
+          "name": "appointment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "varchar(40)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'new_booking'"
+        },
+        "read_at": {
+          "name": "read_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "appointment_notifications_recipient_appointment_uq": {
+          "name": "appointment_notifications_recipient_appointment_uq",
+          "columns": [
+            {
+              "expression": "recipient_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "appointment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "kind",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "appointment_notifications_inbox_idx": {
+          "name": "appointment_notifications_inbox_idx",
+          "columns": [
+            {
+              "expression": "recipient_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "read_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "appointment_notifications_practice_idx": {
+          "name": "appointment_notifications_practice_idx",
+          "columns": [
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "appointment_notifications_practice_id_practices_id_fk": {
+          "name": "appointment_notifications_practice_id_practices_id_fk",
+          "tableFrom": "appointment_notifications",
+          "tableTo": "practices",
+          "columnsFrom": [
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "appointment_notifications_recipient_user_id_users_id_fk": {
+          "name": "appointment_notifications_recipient_user_id_users_id_fk",
+          "tableFrom": "appointment_notifications",
+          "tableTo": "users",
+          "columnsFrom": [
+            "recipient_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "appointment_notifications_appointment_id_appointments_id_fk": {
+          "name": "appointment_notifications_appointment_id_appointments_id_fk",
+          "tableFrom": "appointment_notifications",
+          "tableTo": "appointments",
+          "columnsFrom": [
+            "appointment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "appointment_notifications_appointment_practice_fk": {
+          "name": "appointment_notifications_appointment_practice_fk",
+          "tableFrom": "appointment_notifications",
+          "tableTo": "appointments",
+          "columnsFrom": [
+            "appointment_id",
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id",
+            "practice_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.appointments": {
+      "name": "appointments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "practice_profession_id": {
+          "name": "practice_profession_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "location_id": {
+          "name": "location_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "service_id": {
+          "name": "service_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "professional_user_id": {
+          "name": "professional_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "client_id": {
+          "name": "client_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "follow_up_to_appointment_id": {
+          "name": "follow_up_to_appointment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "starts_at": {
+          "name": "starts_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ends_at": {
+          "name": "ends_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reserved_starts_at": {
+          "name": "reserved_starts_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reserved_ends_at": {
+          "name": "reserved_ends_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "timezone": {
+          "name": "timezone",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "service_name_snapshot": {
+          "name": "service_name_snapshot",
+          "type": "varchar(160)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "duration_minutes_snapshot": {
+          "name": "duration_minutes_snapshot",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "buffer_before_minutes_snapshot": {
+          "name": "buffer_before_minutes_snapshot",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "buffer_after_minutes_snapshot": {
+          "name": "buffer_after_minutes_snapshot",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "price_minor_snapshot": {
+          "name": "price_minor_snapshot",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "currency_snapshot": {
+          "name": "currency_snapshot",
+          "type": "varchar(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "appointment_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'confirmed'"
+        },
+        "hold_expires_at": {
+          "name": "hold_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "client_note": {
+          "name": "client_note",
+          "type": "varchar(1000)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cancellation_reason": {
+          "name": "cancellation_reason",
+          "type": "varchar(240)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cancelled_at": {
+          "name": "cancelled_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cancelled_by_user_id": {
+          "name": "cancelled_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by_user_id": {
+          "name": "created_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "appointments_professional_time_idx": {
+          "name": "appointments_professional_time_idx",
+          "columns": [
+            {
+              "expression": "professional_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "starts_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "appointments_practice_professional_reserved_idx": {
+          "name": "appointments_practice_professional_reserved_idx",
+          "columns": [
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "professional_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "reserved_starts_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "appointments_practice_time_idx": {
+          "name": "appointments_practice_time_idx",
+          "columns": [
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "starts_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "appointments_location_time_idx": {
+          "name": "appointments_location_time_idx",
+          "columns": [
+            {
+              "expression": "location_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "starts_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "appointments_client_time_idx": {
+          "name": "appointments_client_time_idx",
+          "columns": [
+            {
+              "expression": "client_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "starts_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "appointments_follow_up_parent_idx": {
+          "name": "appointments_follow_up_parent_idx",
+          "columns": [
+            {
+              "expression": "follow_up_to_appointment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "appointments_hold_expiry_idx": {
+          "name": "appointments_hold_expiry_idx",
+          "columns": [
+            {
+              "expression": "hold_expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "appointments_id_practice_uq": {
+          "name": "appointments_id_practice_uq",
+          "columns": [
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "appointments_practice_id_practices_id_fk": {
+          "name": "appointments_practice_id_practices_id_fk",
+          "tableFrom": "appointments",
+          "tableTo": "practices",
+          "columnsFrom": [
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "appointments_practice_profession_id_practice_professions_id_fk": {
+          "name": "appointments_practice_profession_id_practice_professions_id_fk",
+          "tableFrom": "appointments",
+          "tableTo": "practice_professions",
+          "columnsFrom": [
+            "practice_profession_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "appointments_location_id_locations_id_fk": {
+          "name": "appointments_location_id_locations_id_fk",
+          "tableFrom": "appointments",
+          "tableTo": "locations",
+          "columnsFrom": [
+            "location_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "appointments_service_id_services_id_fk": {
+          "name": "appointments_service_id_services_id_fk",
+          "tableFrom": "appointments",
+          "tableTo": "services",
+          "columnsFrom": [
+            "service_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "appointments_professional_user_id_users_id_fk": {
+          "name": "appointments_professional_user_id_users_id_fk",
+          "tableFrom": "appointments",
+          "tableTo": "users",
+          "columnsFrom": [
+            "professional_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "appointments_client_id_clients_id_fk": {
+          "name": "appointments_client_id_clients_id_fk",
+          "tableFrom": "appointments",
+          "tableTo": "clients",
+          "columnsFrom": [
+            "client_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "appointments_cancelled_by_user_id_users_id_fk": {
+          "name": "appointments_cancelled_by_user_id_users_id_fk",
+          "tableFrom": "appointments",
+          "tableTo": "users",
+          "columnsFrom": [
+            "cancelled_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "appointments_created_by_user_id_users_id_fk": {
+          "name": "appointments_created_by_user_id_users_id_fk",
+          "tableFrom": "appointments",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "appointments_location_practice_fk": {
+          "name": "appointments_location_practice_fk",
+          "tableFrom": "appointments",
+          "tableTo": "locations",
+          "columnsFrom": [
+            "location_id",
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id",
+            "practice_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "appointments_service_profession_practice_fk": {
+          "name": "appointments_service_profession_practice_fk",
+          "tableFrom": "appointments",
+          "tableTo": "services",
+          "columnsFrom": [
+            "service_id",
+            "practice_id",
+            "practice_profession_id"
+          ],
+          "columnsTo": [
+            "id",
+            "practice_id",
+            "practice_profession_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "appointments_client_practice_fk": {
+          "name": "appointments_client_practice_fk",
+          "tableFrom": "appointments",
+          "tableTo": "clients",
+          "columnsFrom": [
+            "client_id",
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id",
+            "practice_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "appointments_follow_up_parent_practice_fk": {
+          "name": "appointments_follow_up_parent_practice_fk",
+          "tableFrom": "appointments",
+          "tableTo": "appointments",
+          "columnsFrom": [
+            "follow_up_to_appointment_id",
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id",
+            "practice_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "appointments_professional_membership_fk": {
+          "name": "appointments_professional_membership_fk",
+          "tableFrom": "appointments",
+          "tableTo": "practice_memberships",
+          "columnsFrom": [
+            "practice_id",
+            "professional_user_id"
+          ],
+          "columnsTo": [
+            "practice_id",
+            "user_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "appointments_service_professional_assignment_fk": {
+          "name": "appointments_service_professional_assignment_fk",
+          "tableFrom": "appointments",
+          "tableTo": "service_professionals",
+          "columnsFrom": [
+            "service_id",
+            "professional_user_id",
+            "practice_id"
+          ],
+          "columnsTo": [
+            "service_id",
+            "professional_user_id",
+            "practice_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "appointments_service_location_assignment_fk": {
+          "name": "appointments_service_location_assignment_fk",
+          "tableFrom": "appointments",
+          "tableTo": "service_locations",
+          "columnsFrom": [
+            "service_id",
+            "location_id"
+          ],
+          "columnsTo": [
+            "service_id",
+            "location_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "appointments_professional_location_assignment_fk": {
+          "name": "appointments_professional_location_assignment_fk",
+          "tableFrom": "appointments",
+          "tableTo": "professional_locations",
+          "columnsFrom": [
+            "practice_profession_id",
+            "professional_user_id",
+            "location_id"
+          ],
+          "columnsTo": [
+            "practice_profession_id",
+            "user_id",
+            "location_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "appointments_time_order_check": {
+          "name": "appointments_time_order_check",
+          "value": "\"appointments\".\"starts_at\" < \"appointments\".\"ends_at\""
+        },
+        "appointments_reserved_range_check": {
+          "name": "appointments_reserved_range_check",
+          "value": "\"appointments\".\"reserved_starts_at\" <= \"appointments\".\"starts_at\" AND \"appointments\".\"ends_at\" <= \"appointments\".\"reserved_ends_at\""
+        },
+        "appointments_duration_snapshot_check": {
+          "name": "appointments_duration_snapshot_check",
+          "value": "\"appointments\".\"duration_minutes_snapshot\" > 0"
+        },
+        "appointments_duration_matches_snapshot_check": {
+          "name": "appointments_duration_matches_snapshot_check",
+          "value": "\"appointments\".\"ends_at\" = \"appointments\".\"starts_at\" + (\"appointments\".\"duration_minutes_snapshot\" * interval '1 minute')"
+        },
+        "appointments_buffers_snapshot_check": {
+          "name": "appointments_buffers_snapshot_check",
+          "value": "\"appointments\".\"buffer_before_minutes_snapshot\" >= 0 AND \"appointments\".\"buffer_after_minutes_snapshot\" >= 0 AND \"appointments\".\"reserved_starts_at\" = \"appointments\".\"starts_at\" - (\"appointments\".\"buffer_before_minutes_snapshot\" * interval '1 minute') AND \"appointments\".\"reserved_ends_at\" = \"appointments\".\"ends_at\" + (\"appointments\".\"buffer_after_minutes_snapshot\" * interval '1 minute')"
+        },
+        "appointments_price_snapshot_check": {
+          "name": "appointments_price_snapshot_check",
+          "value": "\"appointments\".\"price_minor_snapshot\" IS NULL OR \"appointments\".\"price_minor_snapshot\" >= 0"
+        },
+        "appointments_cancel_metadata_check": {
+          "name": "appointments_cancel_metadata_check",
+          "value": "(\"appointments\".\"status\" = 'cancelled' AND \"appointments\".\"cancelled_at\" IS NOT NULL) OR (\"appointments\".\"status\" <> 'cancelled' AND \"appointments\".\"cancelled_at\" IS NULL)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.audit_events": {
+      "name": "audit_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_user_id": {
+          "name": "actor_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "action": {
+          "name": "action",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entity_type": {
+          "name": "entity_type",
+          "type": "varchar(80)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entity_id": {
+          "name": "entity_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "audit_practice_created_idx": {
+          "name": "audit_practice_created_idx",
+          "columns": [
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "audit_events_practice_id_practices_id_fk": {
+          "name": "audit_events_practice_id_practices_id_fk",
+          "tableFrom": "audit_events",
+          "tableTo": "practices",
+          "columnsFrom": [
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "audit_events_actor_user_id_users_id_fk": {
+          "name": "audit_events_actor_user_id_users_id_fk",
+          "tableFrom": "audit_events",
+          "tableTo": "users",
+          "columnsFrom": [
+            "actor_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.clients": {
+      "name": "clients",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "full_name": {
+          "name": "full_name",
+          "type": "varchar(160)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(320)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone": {
+          "name": "phone",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "clients_practice_email_idx": {
+          "name": "clients_practice_email_idx",
+          "columns": [
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "lower(\"email\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "clients_practice_phone_idx": {
+          "name": "clients_practice_phone_idx",
+          "columns": [
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "phone",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "clients_id_practice_uq": {
+          "name": "clients_id_practice_uq",
+          "columns": [
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "clients_practice_user_uq": {
+          "name": "clients_practice_user_uq",
+          "columns": [
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"clients\".\"user_id\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "clients_practice_id_practices_id_fk": {
+          "name": "clients_practice_id_practices_id_fk",
+          "tableFrom": "clients",
+          "tableTo": "practices",
+          "columnsFrom": [
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "clients_user_id_users_id_fk": {
+          "name": "clients_user_id_users_id_fk",
+          "tableFrom": "clients",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "clients_contact_required_check": {
+          "name": "clients_contact_required_check",
+          "value": "\"clients\".\"email\" IS NOT NULL OR \"clients\".\"phone\" IS NOT NULL"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.idempotency_keys": {
+      "name": "idempotency_keys",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "key": {
+          "name": "key",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "request_hash": {
+          "name": "request_hash",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "response": {
+          "name": "response",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idempotency_practice_key_uq": {
+          "name": "idempotency_practice_key_uq",
+          "columns": [
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idempotency_expiry_idx": {
+          "name": "idempotency_expiry_idx",
+          "columns": [
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "idempotency_keys_practice_id_practices_id_fk": {
+          "name": "idempotency_keys_practice_id_practices_id_fk",
+          "tableFrom": "idempotency_keys",
+          "tableTo": "practices",
+          "columnsFrom": [
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.membership_permission_overrides": {
+      "name": "membership_permission_overrides",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "membership_id": {
+          "name": "membership_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "permission_code": {
+          "name": "permission_code",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "location_id": {
+          "name": "location_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "effect": {
+          "name": "effect",
+          "type": "permission_effect",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "membership_permission_practice_uq": {
+          "name": "membership_permission_practice_uq",
+          "columns": [
+            {
+              "expression": "membership_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "permission_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"membership_permission_overrides\".\"location_id\" IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "membership_permission_location_uq": {
+          "name": "membership_permission_location_uq",
+          "columns": [
+            {
+              "expression": "membership_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "permission_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "location_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"membership_permission_overrides\".\"location_id\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "membership_permissions_lookup_idx": {
+          "name": "membership_permissions_lookup_idx",
+          "columns": [
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "membership_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "permission_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "membership_permission_overrides_permission_code_permission_catalog_code_fk": {
+          "name": "membership_permission_overrides_permission_code_permission_catalog_code_fk",
+          "tableFrom": "membership_permission_overrides",
+          "tableTo": "permission_catalog",
+          "columnsFrom": [
+            "permission_code"
+          ],
+          "columnsTo": [
+            "code"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "membership_permissions_membership_practice_fk": {
+          "name": "membership_permissions_membership_practice_fk",
+          "tableFrom": "membership_permission_overrides",
+          "tableTo": "practice_memberships",
+          "columnsFrom": [
+            "practice_id",
+            "membership_id"
+          ],
+          "columnsTo": [
+            "practice_id",
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "membership_permissions_location_practice_fk": {
+          "name": "membership_permissions_location_practice_fk",
+          "tableFrom": "membership_permission_overrides",
+          "tableTo": "locations",
+          "columnsFrom": [
+            "location_id",
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id",
+            "practice_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.permission_catalog": {
+      "name": "permission_catalog",
+      "schema": "",
+      "columns": {
+        "code": {
+          "name": "code",
+          "type": "varchar(100)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "varchar(240)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sensitive": {
+          "name": "sensitive",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.role_permission_grants": {
+      "name": "role_permission_grants",
+      "schema": "",
+      "columns": {
+        "role": {
+          "name": "role",
+          "type": "membership_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "permission_code": {
+          "name": "permission_code",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scope": {
+          "name": "scope",
+          "type": "access_scope",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "role_permission_code_idx": {
+          "name": "role_permission_code_idx",
+          "columns": [
+            {
+              "expression": "permission_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "role",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "role_permission_grants_permission_code_permission_catalog_code_fk": {
+          "name": "role_permission_grants_permission_code_permission_catalog_code_fk",
+          "tableFrom": "role_permission_grants",
+          "tableTo": "permission_catalog",
+          "columnsFrom": [
+            "permission_code"
+          ],
+          "columnsTo": [
+            "code"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "role_permission_grants_role_permission_code_pk": {
+          "name": "role_permission_grants_role_permission_code_pk",
+          "columns": [
+            "role",
+            "permission_code"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.staff_invitation_locations": {
+      "name": "staff_invitation_locations",
+      "schema": "",
+      "columns": {
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "invitation_id": {
+          "name": "invitation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "location_id": {
+          "name": "location_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "staff_invitation_locations_location_idx": {
+          "name": "staff_invitation_locations_location_idx",
+          "columns": [
+            {
+              "expression": "location_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "invitation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "staff_invitation_locations_invitation_practice_fk": {
+          "name": "staff_invitation_locations_invitation_practice_fk",
+          "tableFrom": "staff_invitation_locations",
+          "tableTo": "staff_invitations",
+          "columnsFrom": [
+            "invitation_id",
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id",
+            "practice_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "staff_invitation_locations_location_practice_fk": {
+          "name": "staff_invitation_locations_location_practice_fk",
+          "tableFrom": "staff_invitation_locations",
+          "tableTo": "locations",
+          "columnsFrom": [
+            "location_id",
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id",
+            "practice_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "staff_invitation_locations_invitation_id_location_id_pk": {
+          "name": "staff_invitation_locations_invitation_id_location_id_pk",
+          "columns": [
+            "invitation_id",
+            "location_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.staff_invitation_roles": {
+      "name": "staff_invitation_roles",
+      "schema": "",
+      "columns": {
+        "invitation_id": {
+          "name": "invitation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "membership_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "staff_invitation_roles_invitation_id_staff_invitations_id_fk": {
+          "name": "staff_invitation_roles_invitation_id_staff_invitations_id_fk",
+          "tableFrom": "staff_invitation_roles",
+          "tableTo": "staff_invitations",
+          "columnsFrom": [
+            "invitation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "staff_invitation_roles_invitation_id_role_pk": {
+          "name": "staff_invitation_roles_invitation_id_role_pk",
+          "columns": [
+            "invitation_id",
+            "role"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.staff_invitations": {
+      "name": "staff_invitations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(320)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token_hash": {
+          "name": "token_hash",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "invited_by_user_id": {
+          "name": "invited_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "accepted_at": {
+          "name": "accepted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "staff_invitations_id_practice_uq": {
+          "name": "staff_invitations_id_practice_uq",
+          "columns": [
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "staff_invitation_active_email_uq": {
+          "name": "staff_invitation_active_email_uq",
+          "columns": [
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "lower(\"email\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"staff_invitations\".\"accepted_at\" IS NULL AND \"staff_invitations\".\"revoked_at\" IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "staff_invitations_practice_expiry_idx": {
+          "name": "staff_invitations_practice_expiry_idx",
+          "columns": [
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "staff_invitations_practice_id_practices_id_fk": {
+          "name": "staff_invitations_practice_id_practices_id_fk",
+          "tableFrom": "staff_invitations",
+          "tableTo": "practices",
+          "columnsFrom": [
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "staff_invitations_invited_by_user_id_users_id_fk": {
+          "name": "staff_invitations_invited_by_user_id_users_id_fk",
+          "tableFrom": "staff_invitations",
+          "tableTo": "users",
+          "columnsFrom": [
+            "invited_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "staff_invitations_token_hash_unique": {
+          "name": "staff_invitations_token_hash_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "token_hash"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.platform_membership_roles": {
+      "name": "platform_membership_roles",
+      "schema": "",
+      "columns": {
+        "membership_id": {
+          "name": "membership_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "platform_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "platform_membership_roles_membership_id_platform_memberships_id_fk": {
+          "name": "platform_membership_roles_membership_id_platform_memberships_id_fk",
+          "tableFrom": "platform_membership_roles",
+          "tableTo": "platform_memberships",
+          "columnsFrom": [
+            "membership_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "platform_membership_roles_membership_id_role_pk": {
+          "name": "platform_membership_roles_membership_id_role_pk",
+          "columns": [
+            "membership_id",
+            "role"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.platform_memberships": {
+      "name": "platform_memberships",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "membership_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'active'"
+        },
+        "granted_by_user_id": {
+          "name": "granted_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "platform_memberships_status_idx": {
+          "name": "platform_memberships_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "platform_memberships_user_id_users_id_fk": {
+          "name": "platform_memberships_user_id_users_id_fk",
+          "tableFrom": "platform_memberships",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "platform_memberships_granted_by_user_id_users_id_fk": {
+          "name": "platform_memberships_granted_by_user_id_users_id_fk",
+          "tableFrom": "platform_memberships",
+          "tableTo": "users",
+          "columnsFrom": [
+            "granted_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "platform_memberships_user_id_unique": {
+          "name": "platform_memberships_user_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "user_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.platform_permission_catalog": {
+      "name": "platform_permission_catalog",
+      "schema": "",
+      "columns": {
+        "code": {
+          "name": "code",
+          "type": "varchar(100)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "varchar(240)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sensitive": {
+          "name": "sensitive",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.platform_role_permission_grants": {
+      "name": "platform_role_permission_grants",
+      "schema": "",
+      "columns": {
+        "role": {
+          "name": "role",
+          "type": "platform_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "permission_code": {
+          "name": "permission_code",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "platform_role_permission_lookup_idx": {
+          "name": "platform_role_permission_lookup_idx",
+          "columns": [
+            {
+              "expression": "permission_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "role",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "platform_role_permission_grants_permission_code_platform_permission_catalog_code_fk": {
+          "name": "platform_role_permission_grants_permission_code_platform_permission_catalog_code_fk",
+          "tableFrom": "platform_role_permission_grants",
+          "tableTo": "platform_permission_catalog",
+          "columnsFrom": [
+            "permission_code"
+          ],
+          "columnsTo": [
+            "code"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "platform_role_permission_grants_role_permission_code_pk": {
+          "name": "platform_role_permission_grants_role_permission_code_pk",
+          "columns": [
+            "role",
+            "permission_code"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.billing_profiles": {
+      "name": "billing_profiles",
+      "schema": "",
+      "columns": {
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "legal_name": {
+          "name": "legal_name",
+          "type": "varchar(180)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gstin": {
+          "name": "gstin",
+          "type": "varchar(15)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address": {
+          "name": "address",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(320)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone": {
+          "name": "phone",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "invoice_prefix": {
+          "name": "invoice_prefix",
+          "type": "varchar(12)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'INV'"
+        },
+        "updated_by_user_id": {
+          "name": "updated_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "billing_profiles_practice_id_practices_id_fk": {
+          "name": "billing_profiles_practice_id_practices_id_fk",
+          "tableFrom": "billing_profiles",
+          "tableTo": "practices",
+          "columnsFrom": [
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "billing_profiles_updated_by_user_id_users_id_fk": {
+          "name": "billing_profiles_updated_by_user_id_users_id_fk",
+          "tableFrom": "billing_profiles",
+          "tableTo": "users",
+          "columnsFrom": [
+            "updated_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "billing_profiles_gstin_format_check": {
+          "name": "billing_profiles_gstin_format_check",
+          "value": "\"billing_profiles\".\"gstin\" IS NULL OR \"billing_profiles\".\"gstin\" ~ '^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.client_documents": {
+      "name": "client_documents",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "client_id": {
+          "name": "client_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "appointment_id": {
+          "name": "appointment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "location_id": {
+          "name": "location_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "uploaded_by_user_id": {
+          "name": "uploaded_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "storage_key": {
+          "name": "storage_key",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "original_name": {
+          "name": "original_name",
+          "type": "varchar(240)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "media_type": {
+          "name": "media_type",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "size_bytes": {
+          "name": "size_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category": {
+          "name": "category",
+          "type": "varchar(40)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "varchar(500)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "customer_visible": {
+          "name": "customer_visible",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "client_documents_practice_client_created_idx": {
+          "name": "client_documents_practice_client_created_idx",
+          "columns": [
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "client_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "client_documents_client_visibility_idx": {
+          "name": "client_documents_client_visibility_idx",
+          "columns": [
+            {
+              "expression": "client_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "customer_visible",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "client_documents_storage_key_uq": {
+          "name": "client_documents_storage_key_uq",
+          "columns": [
+            {
+              "expression": "storage_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "client_documents_practice_id_practices_id_fk": {
+          "name": "client_documents_practice_id_practices_id_fk",
+          "tableFrom": "client_documents",
+          "tableTo": "practices",
+          "columnsFrom": [
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "client_documents_appointment_id_appointments_id_fk": {
+          "name": "client_documents_appointment_id_appointments_id_fk",
+          "tableFrom": "client_documents",
+          "tableTo": "appointments",
+          "columnsFrom": [
+            "appointment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "client_documents_location_id_locations_id_fk": {
+          "name": "client_documents_location_id_locations_id_fk",
+          "tableFrom": "client_documents",
+          "tableTo": "locations",
+          "columnsFrom": [
+            "location_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "client_documents_uploaded_by_user_id_users_id_fk": {
+          "name": "client_documents_uploaded_by_user_id_users_id_fk",
+          "tableFrom": "client_documents",
+          "tableTo": "users",
+          "columnsFrom": [
+            "uploaded_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "client_documents_client_practice_fk": {
+          "name": "client_documents_client_practice_fk",
+          "tableFrom": "client_documents",
+          "tableTo": "clients",
+          "columnsFrom": [
+            "client_id",
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id",
+            "practice_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "client_documents_size_positive_check": {
+          "name": "client_documents_size_positive_check",
+          "value": "\"client_documents\".\"size_bytes\" > 0 AND \"client_documents\".\"size_bytes\" <= 20971520"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.invoice_items": {
+      "name": "invoice_items",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "invoice_id": {
+          "name": "invoice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "varchar(500)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sac_code": {
+          "name": "sac_code",
+          "type": "varchar(12)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "quantity_milli": {
+          "name": "quantity_milli",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1000
+        },
+        "unit_price_minor": {
+          "name": "unit_price_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "line_total_minor": {
+          "name": "line_total_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tax_rate_bps": {
+          "name": "tax_rate_bps",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "tax_minor": {
+          "name": "tax_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "line_order": {
+          "name": "line_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "invoice_items_invoice_idx": {
+          "name": "invoice_items_invoice_idx",
+          "columns": [
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "invoice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "invoice_items_invoice_practice_fk": {
+          "name": "invoice_items_invoice_practice_fk",
+          "tableFrom": "invoice_items",
+          "tableTo": "invoices",
+          "columnsFrom": [
+            "invoice_id",
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id",
+            "practice_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "invoice_items_values_check": {
+          "name": "invoice_items_values_check",
+          "value": "\"invoice_items\".\"quantity_milli\" > 0 AND \"invoice_items\".\"unit_price_minor\" >= 0 AND \"invoice_items\".\"line_total_minor\" >= 0 AND \"invoice_items\".\"tax_rate_bps\" >= 0 AND \"invoice_items\".\"tax_minor\" >= 0 AND \"invoice_items\".\"line_order\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.invoice_payments": {
+      "name": "invoice_payments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "invoice_id": {
+          "name": "invoice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_minor": {
+          "name": "amount_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "method": {
+          "name": "method",
+          "type": "invoice_payment_method",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reference": {
+          "name": "reference",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "received_at": {
+          "name": "received_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "recorded_by_user_id": {
+          "name": "recorded_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "invoice_payments_invoice_idx": {
+          "name": "invoice_payments_invoice_idx",
+          "columns": [
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "invoice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "received_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "invoice_payments_recorded_by_user_id_users_id_fk": {
+          "name": "invoice_payments_recorded_by_user_id_users_id_fk",
+          "tableFrom": "invoice_payments",
+          "tableTo": "users",
+          "columnsFrom": [
+            "recorded_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "invoice_payments_invoice_practice_fk": {
+          "name": "invoice_payments_invoice_practice_fk",
+          "tableFrom": "invoice_payments",
+          "tableTo": "invoices",
+          "columnsFrom": [
+            "invoice_id",
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id",
+            "practice_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "invoice_payments_amount_positive_check": {
+          "name": "invoice_payments_amount_positive_check",
+          "value": "\"invoice_payments\".\"amount_minor\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.invoice_sequences": {
+      "name": "invoice_sequences",
+      "schema": "",
+      "columns": {
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "financial_year": {
+          "name": "financial_year",
+          "type": "varchar(7)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_number": {
+          "name": "last_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "invoice_sequences_practice_year_uq": {
+          "name": "invoice_sequences_practice_year_uq",
+          "columns": [
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "financial_year",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "invoice_sequences_practice_id_practices_id_fk": {
+          "name": "invoice_sequences_practice_id_practices_id_fk",
+          "tableFrom": "invoice_sequences",
+          "tableTo": "practices",
+          "columnsFrom": [
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "invoice_sequences_number_check": {
+          "name": "invoice_sequences_number_check",
+          "value": "\"invoice_sequences\".\"last_number\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.invoices": {
+      "name": "invoices",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "practice_id": {
+          "name": "practice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "client_id": {
+          "name": "client_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "appointment_id": {
+          "name": "appointment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "location_id": {
+          "name": "location_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "invoice_number": {
+          "name": "invoice_number",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "invoice_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "invoice_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'issued'"
+        },
+        "currency": {
+          "name": "currency",
+          "type": "varchar(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "issue_date": {
+          "name": "issue_date",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "due_date": {
+          "name": "due_date",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "supplier_snapshot": {
+          "name": "supplier_snapshot",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "recipient_snapshot": {
+          "name": "recipient_snapshot",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "place_of_supply": {
+          "name": "place_of_supply",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sac_code": {
+          "name": "sac_code",
+          "type": "varchar(12)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tax_mode": {
+          "name": "tax_mode",
+          "type": "invoice_tax_mode",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'none'"
+        },
+        "subtotal_minor": {
+          "name": "subtotal_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "discount_minor": {
+          "name": "discount_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "tax_minor": {
+          "name": "tax_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "central_tax_minor": {
+          "name": "central_tax_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "state_tax_minor": {
+          "name": "state_tax_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "integrated_tax_minor": {
+          "name": "integrated_tax_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "total_minor": {
+          "name": "total_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_paid_minor": {
+          "name": "amount_paid_minor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "notes": {
+          "name": "notes",
+          "type": "varchar(1000)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "issued_by_user_id": {
+          "name": "issued_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "issued_at": {
+          "name": "issued_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "voided_at": {
+          "name": "voided_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "void_reason": {
+          "name": "void_reason",
+          "type": "varchar(300)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "invoices_practice_number_uq": {
+          "name": "invoices_practice_number_uq",
+          "columns": [
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "invoice_number",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "invoices_id_practice_uq": {
+          "name": "invoices_id_practice_uq",
+          "columns": [
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "invoices_practice_issue_idx": {
+          "name": "invoices_practice_issue_idx",
+          "columns": [
+            {
+              "expression": "practice_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "issue_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "invoices_client_issue_idx": {
+          "name": "invoices_client_issue_idx",
+          "columns": [
+            {
+              "expression": "client_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "issue_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "invoices_practice_id_practices_id_fk": {
+          "name": "invoices_practice_id_practices_id_fk",
+          "tableFrom": "invoices",
+          "tableTo": "practices",
+          "columnsFrom": [
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "invoices_appointment_id_appointments_id_fk": {
+          "name": "invoices_appointment_id_appointments_id_fk",
+          "tableFrom": "invoices",
+          "tableTo": "appointments",
+          "columnsFrom": [
+            "appointment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "invoices_location_id_locations_id_fk": {
+          "name": "invoices_location_id_locations_id_fk",
+          "tableFrom": "invoices",
+          "tableTo": "locations",
+          "columnsFrom": [
+            "location_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "invoices_issued_by_user_id_users_id_fk": {
+          "name": "invoices_issued_by_user_id_users_id_fk",
+          "tableFrom": "invoices",
+          "tableTo": "users",
+          "columnsFrom": [
+            "issued_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "invoices_client_practice_fk": {
+          "name": "invoices_client_practice_fk",
+          "tableFrom": "invoices",
+          "tableTo": "clients",
+          "columnsFrom": [
+            "client_id",
+            "practice_id"
+          ],
+          "columnsTo": [
+            "id",
+            "practice_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "invoices_amounts_nonnegative_check": {
+          "name": "invoices_amounts_nonnegative_check",
+          "value": "\"invoices\".\"subtotal_minor\" >= 0 AND \"invoices\".\"discount_minor\" >= 0 AND \"invoices\".\"tax_minor\" >= 0 AND \"invoices\".\"total_minor\" >= 0 AND \"invoices\".\"amount_paid_minor\" >= 0 AND \"invoices\".\"amount_paid_minor\" <= \"invoices\".\"total_minor\""
+        },
+        "invoices_due_after_issue_check": {
+          "name": "invoices_due_after_issue_check",
+          "value": "\"invoices\".\"due_date\" IS NULL OR \"invoices\".\"due_date\" >= \"invoices\".\"issue_date\""
+        },
+        "invoices_void_metadata_check": {
+          "name": "invoices_void_metadata_check",
+          "value": "(\"invoices\".\"status\" = 'void' AND \"invoices\".\"voided_at\" IS NOT NULL) OR (\"invoices\".\"status\" <> 'void' AND \"invoices\".\"voided_at\" IS NULL)"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.access_scope": {
+      "name": "access_scope",
+      "schema": "public",
+      "values": [
+        "practice",
+        "assigned_locations",
+        "own"
+      ]
+    },
+    "public.appointment_status": {
+      "name": "appointment_status",
+      "schema": "public",
+      "values": [
+        "held",
+        "pending",
+        "confirmed",
+        "checked_in",
+        "in_progress",
+        "completed",
+        "no_show",
+        "cancelled"
+      ]
+    },
+    "public.availability_scope": {
+      "name": "availability_scope",
+      "schema": "public",
+      "values": [
+        "practice",
+        "location",
+        "professional",
+        "professional_location"
+      ]
+    },
+    "public.exception_kind": {
+      "name": "exception_kind",
+      "schema": "public",
+      "values": [
+        "closed",
+        "extra_hours"
+      ]
+    },
+    "public.invoice_kind": {
+      "name": "invoice_kind",
+      "schema": "public",
+      "values": [
+        "tax_invoice",
+        "bill_of_supply",
+        "receipt"
+      ]
+    },
+    "public.invoice_payment_method": {
+      "name": "invoice_payment_method",
+      "schema": "public",
+      "values": [
+        "cash",
+        "card",
+        "bank_transfer",
+        "upi",
+        "insurance",
+        "other"
+      ]
+    },
+    "public.invoice_status": {
+      "name": "invoice_status",
+      "schema": "public",
+      "values": [
+        "issued",
+        "partially_paid",
+        "paid",
+        "void"
+      ]
+    },
+    "public.invoice_tax_mode": {
+      "name": "invoice_tax_mode",
+      "schema": "public",
+      "values": [
+        "none",
+        "cgst_sgst",
+        "igst"
+      ]
+    },
+    "public.membership_role": {
+      "name": "membership_role",
+      "schema": "public",
+      "values": [
+        "owner",
+        "admin",
+        "professional",
+        "scheduler"
+      ]
+    },
+    "public.membership_status": {
+      "name": "membership_status",
+      "schema": "public",
+      "values": [
+        "invited",
+        "active",
+        "suspended"
+      ]
+    },
+    "public.permission_effect": {
+      "name": "permission_effect",
+      "schema": "public",
+      "values": [
+        "allow",
+        "deny"
+      ]
+    },
+    "public.platform_role": {
+      "name": "platform_role",
+      "schema": "public",
+      "values": [
+        "superadmin",
+        "support"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

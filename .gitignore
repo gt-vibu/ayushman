@@ -1,0 +1,13 @@
+.next/
+.next-dev/
+.next-prod/
+node_modules/
+.turbo/
+.env*
+!.env.example
+.private-recordings/
+*.log
+coverage/
+dist/
+build/
+*.tsbuildinfo

@@ -1,0 +1,1 @@
+CREATE INDEX "appointments_practice_professional_reserved_idx" ON "appointments" USING btree ("practice_id","professional_user_id","reserved_starts_at");

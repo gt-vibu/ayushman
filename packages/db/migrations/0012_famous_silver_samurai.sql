@@ -1,0 +1,1 @@
+ALTER TABLE "professional_locations" ADD CONSTRAINT "professional_locations_branch_profession_fk" FOREIGN KEY ("practice_profession_id","location_id") REFERENCES "public"."location_professions"("practice_profession_id","location_id") ON DELETE cascade ON UPDATE no action;

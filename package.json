@@ -1,0 +1,21 @@
+{
+  "name": "ayushman-happy-flow",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "typecheck": "turbo typecheck",
+    "lint": "turbo lint",
+    "db:generate": "pnpm --filter @ayushman-v2/db db:generate",
+    "db:migrate": "pnpm --filter @ayushman-v2/db db:migrate",
+    "db:studio": "pnpm --filter @ayushman-v2/db db:studio",
+    "db:seed:demo": "pnpm --filter @ayushman-v2/api db:seed:demo"
+  },
+  "devDependencies": {
+    "prettier": "^3.7.4",
+    "turbo": "^2.6.1",
+    "typescript": "^5.9.3"
+  }
+}

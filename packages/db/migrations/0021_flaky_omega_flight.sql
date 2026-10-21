@@ -1,0 +1,6 @@
+ALTER TABLE "practices" ADD COLUMN "session_recording_enabled" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "practices" ADD COLUMN "session_recording_retention_days" integer DEFAULT 90 NOT NULL;--> statement-breakpoint
+ALTER TABLE "session_recordings" ADD COLUMN "retention_days" integer DEFAULT 90 NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "session_recordings_active_appointment_uq" ON "session_recordings" USING btree ("practice_id","appointment_id") WHERE "session_recordings"."deleted_at" IS NULL AND "session_recordings"."status" IN ('awaiting_customer_consent','ready_to_record','recording','uploading','ready_for_review','shared','stop_requested');--> statement-breakpoint
+ALTER TABLE "practices" ADD CONSTRAINT "practices_session_recording_retention_check" CHECK ("practices"."session_recording_retention_days" BETWEEN 1 AND 3650);--> statement-breakpoint
+ALTER TABLE "session_recordings" ADD CONSTRAINT "session_recordings_retention_check" CHECK ("session_recordings"."retention_days" BETWEEN 1 AND 3650);

@@ -1,0 +1,43 @@
+{
+  "name": "@ayushman-v2/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "pnpm --filter @ayushman-v2/contracts build && pnpm --filter @ayushman-v2/db build && nest build",
+    "dev": "nest start --watch",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "db:generate": "pnpm --filter @ayushman-v2/db db:generate",
+    "db:migrate": "pnpm --filter @ayushman-v2/db db:migrate",
+    "db:seed": "node scripts/bootstrap-superadmin.mjs",
+    "db:seed:demo": "node scripts/seed-practice-demo.mjs",
+    "bootstrap:superadmin": "node scripts/bootstrap-superadmin.mjs"
+  },
+  "dependencies": {
+    "@ayushman-v2/contracts": "workspace:*",
+    "@ayushman-v2/db": "workspace:*",
+    "@nestjs/common": "^11.1.9",
+    "@nestjs/core": "^11.1.9",
+    "@nestjs/platform-express": "^11.1.9",
+    "@nestjs/swagger": "^11.2.1",
+    "argon2": "^0.44.0",
+    "cookie-parser": "^1.4.7",
+    "countrycitystatejson": "26.9.2802",
+    "helmet": "^8.1.0",
+    "ioredis": "^5.8.2",
+    "multer": "^2.4.0",
+    "postgres": "^3.4.7",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.10",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/express": "^5.0.5",
+    "@types/multer": "^2.3.0",
+    "@types/node": "^24.10.1",
+    "typescript": "^5.9.3"
+  }
+}
