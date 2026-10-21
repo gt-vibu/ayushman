@@ -79,7 +79,7 @@ export class BookingService implements OnModuleInit, OnModuleDestroy {
   }
 
   async publicPractice(practiceId: string) {
-    const cacheKey = `ayushman:v2:public-practice:${practiceId}`;
+    const cacheKey = `ayushman:v3:public-practice:${practiceId}`;
     try {
       const cached = await this.redis.get(cacheKey);
       if (cached) return JSON.parse(cached) as Awaited<ReturnType<typeof this.loadPublicPractice>>;
@@ -112,15 +112,14 @@ export class BookingService implements OnModuleInit, OnModuleDestroy {
         serviceId: services.id, practiceProfessionId: services.practiceProfessionId, name: services.name,
         description: services.description, durationMinutes: services.durationMinutes, priceMinor: services.priceMinor,
         currency: services.currency, locationId: locations.id, locationName: locations.name,
-        professionalUserId: users.id, professionalName: users.fullName, headline: professionalProfiles.headline,
-        bio: professionalProfiles.bio, profileAttributes: professionalProfiles.profileAttributes,
+        professionalUserId: users.id, professionalName: users.fullName,
       }).from(services)
         .innerJoin(serviceLocations, and(eq(serviceLocations.serviceId, services.id), eq(serviceLocations.active, true)))
         .innerJoin(locations, and(eq(locations.id, serviceLocations.locationId), eq(locations.active, true)))
         .innerJoin(locationProfessions, and(eq(locationProfessions.locationId, locations.id), eq(locationProfessions.practiceProfessionId, services.practiceProfessionId), eq(locationProfessions.enabled, true)))
         .innerJoin(practiceProfessions, and(eq(practiceProfessions.id, services.practiceProfessionId), eq(practiceProfessions.enabled, true)))
         .innerJoin(serviceProfessionals, and(eq(serviceProfessionals.serviceId, services.id), eq(serviceProfessionals.active, true)))
-        .innerJoin(professionalProfiles, and(eq(professionalProfiles.userId, serviceProfessionals.professionalUserId), eq(professionalProfiles.practiceProfessionId, services.practiceProfessionId), eq(professionalProfiles.publicProfile, true)))
+        .innerJoin(professionalProfiles, and(eq(professionalProfiles.userId, serviceProfessionals.professionalUserId), eq(professionalProfiles.practiceProfessionId, services.practiceProfessionId)))
         .innerJoin(users, and(eq(users.id, professionalProfiles.userId), isNull(users.disabledAt)))
         .innerJoin(practiceMemberships, and(eq(practiceMemberships.practiceId, practiceId), eq(practiceMemberships.userId, users.id), eq(practiceMemberships.status, 'active')))
         .innerJoin(practiceMembershipRoles, and(eq(practiceMembershipRoles.membershipId, practiceMemberships.id), eq(practiceMembershipRoles.role, 'professional')))
@@ -131,7 +130,7 @@ export class BookingService implements OnModuleInit, OnModuleDestroy {
     const servicesById = new Map<string, {
       id: string; practiceProfessionId: string; name: string; description: string | null; durationMinutes: number;
       priceMinor: number | null; currency: string; locations: Map<string, { id: string; name: string }>;
-      professionals: Map<string, { id: string; name: string; headline: string | null; bio: string | null; profileAttributes: unknown }>;
+      professionals: Map<string, { id: string; name: string }>;
     }>();
     for (const row of offeringRows) {
       let service = servicesById.get(row.serviceId);
@@ -143,8 +142,7 @@ export class BookingService implements OnModuleInit, OnModuleDestroy {
       }
       service.locations.set(row.locationId, { id: row.locationId, name: row.locationName });
       service.professionals.set(row.professionalUserId, {
-        id: row.professionalUserId, name: row.professionalName, headline: row.headline, bio: row.bio,
-        profileAttributes: row.profileAttributes,
+        id: row.professionalUserId, name: row.professionalName,
       });
     }
     return {
@@ -158,7 +156,7 @@ export class BookingService implements OnModuleInit, OnModuleDestroy {
   async searchDirectory(query: PublicDirectoryQuery) {
     const term = query.q?.trim() ?? '';
     const search = `%${term}%`;
-    const cacheKey = `ayushman:v3:directory:${createHash('sha1').update(term.toLocaleLowerCase('en-US')).digest('hex')}`;
+    const cacheKey = `ayushman:v4:directory:${createHash('sha1').update(term.toLocaleLowerCase('en-US')).digest('hex')}`;
     const cached = await this.redis.get(cacheKey);
     if (cached) return JSON.parse(cached) as Array<{ id: string; name: string; slug: string; description: string | null; timezone: string; services: Array<{ id: string; name: string; durationMinutes: number; priceMinor: number | null; currency: string }> }>;
     const rows = await this.db.select({
@@ -170,7 +168,7 @@ export class BookingService implements OnModuleInit, OnModuleDestroy {
         ${practices.name} ILIKE ${search} OR ${practices.slug} ILIKE ${search} OR
         EXISTS (SELECT 1 FROM practice_professions pp WHERE pp.practice_id = ${practices.id} AND pp.enabled AND pp.name ILIKE ${search}) OR
         EXISTS (SELECT 1 FROM services s WHERE s.practice_id = ${practices.id} AND s.active AND s.online_bookable AND s.name ILIKE ${search}) OR
-        EXISTS (SELECT 1 FROM professional_profiles prof JOIN users u ON u.id = prof.user_id WHERE prof.practice_id = ${practices.id} AND prof.public_profile AND u.disabled_at IS NULL AND u.full_name ILIKE ${search})
+        EXISTS (SELECT 1 FROM professional_profiles prof JOIN users u ON u.id = prof.user_id WHERE prof.practice_id = ${practices.id} AND u.disabled_at IS NULL AND u.full_name ILIKE ${search})
       )` : sql`true`,
     )).orderBy(asc(practices.name)).limit(30);
     if (!rows.length) {
@@ -187,7 +185,7 @@ export class BookingService implements OnModuleInit, OnModuleDestroy {
       .innerJoin(locationProfessions, and(eq(locationProfessions.locationId, locations.id), eq(locationProfessions.practiceProfessionId, services.practiceProfessionId), eq(locationProfessions.enabled, true)))
       .innerJoin(practiceProfessions, and(eq(practiceProfessions.id, services.practiceProfessionId), eq(practiceProfessions.enabled, true)))
       .innerJoin(serviceProfessionals, and(eq(serviceProfessionals.serviceId, services.id), eq(serviceProfessionals.active, true)))
-      .innerJoin(professionalProfiles, and(eq(professionalProfiles.userId, serviceProfessionals.professionalUserId), eq(professionalProfiles.practiceProfessionId, services.practiceProfessionId), eq(professionalProfiles.publicProfile, true)))
+      .innerJoin(professionalProfiles, and(eq(professionalProfiles.userId, serviceProfessionals.professionalUserId), eq(professionalProfiles.practiceProfessionId, services.practiceProfessionId)))
       .innerJoin(users, and(eq(users.id, professionalProfiles.userId), isNull(users.disabledAt)))
       .innerJoin(practiceMemberships, and(eq(practiceMemberships.practiceId, services.practiceId), eq(practiceMemberships.userId, users.id), eq(practiceMemberships.status, 'active')))
       .innerJoin(practiceMembershipRoles, and(eq(practiceMembershipRoles.membershipId, practiceMemberships.id), eq(practiceMembershipRoles.role, 'professional')))
@@ -234,7 +232,7 @@ export class BookingService implements OnModuleInit, OnModuleDestroy {
       .innerJoin(users, and(eq(users.id, professionalProfiles.userId), isNull(users.disabledAt)))
       .innerJoin(practiceMembershipRoles, and(eq(practiceMembershipRoles.membershipId, practiceMemberships.id), eq(practiceMembershipRoles.role, 'professional')))
       .innerJoin(professionalLocations, and(eq(professionalLocations.practiceProfessionId, service.practiceProfessionId), eq(professionalLocations.userId, professionalProfiles.userId), eq(professionalLocations.locationId, location.id)))
-      .where(and(eq(serviceProfessionals.serviceId, service.id), eq(serviceProfessionals.practiceId, practiceId), eq(serviceProfessionals.active, true), internal ? sql`true` : eq(professionalProfiles.publicProfile, true), query.professionalUserId ? eq(professionalProfiles.userId, query.professionalUserId) : sql`true`));
+      .where(and(eq(serviceProfessionals.serviceId, service.id), eq(serviceProfessionals.practiceId, practiceId), eq(serviceProfessionals.active, true), query.professionalUserId ? eq(professionalProfiles.userId, query.professionalUserId) : sql`true`));
     if (query.professionalUserId && !professionals.length) throw new NotFoundException('This professional is not eligible for the selected service and branch');
 
     const rules = await this.db.select().from(availabilityRules).where(and(eq(availabilityRules.practiceId, practiceId), eq(availabilityRules.active, true)));
