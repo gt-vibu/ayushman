@@ -3,8 +3,8 @@ import { z } from 'zod';
 const Environment = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   API_PORT: z.coerce.number().int().min(1).max(65535).default(4100),
-  WEB_ORIGIN: z.url().default('http://localhost:3101'),
-  ADMIN_WEB_ORIGIN: z.url().default('http://localhost:3102'),
+  WEB_ORIGIN: z.preprocess((value) => value === '' ? undefined : value, z.url().default('http://localhost:3101')),
+  ADMIN_WEB_ORIGIN: z.preprocess((value) => value === '' ? undefined : value, z.url().default('http://localhost:3102')),
   DATABASE_URL: z.url(),
   DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
   REDIS_URL: z.url().optional(),
