@@ -12,7 +12,7 @@ const child = spawn(process.execPath, [nextBin, command, ...args], {
   stdio: 'inherit',
   env: {
     ...process.env,
-    NEXT_DIST_DIR: process.env.NEXT_DIST_DIR ?? externalBuildDir,
+    NEXT_DIST_DIR: process.env.NEXT_DIST_DIR ?? (process.env.VERCEL ? '.next' : externalBuildDir),
     NODE_PATH: process.env.NODE_PATH ?? path.resolve(process.cwd(), 'node_modules'),
   },
 });

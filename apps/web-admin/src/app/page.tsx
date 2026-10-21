@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4100/api/v1';
+const API = process.env.NEXT_PUBLIC_API_URL ?? '/api/v1';
 type AdminSession = { user: { email: string; fullName: string; roles: string[] } };
 type Overview = { activePractices: number; activeUsers: number; platformOperators: number };
 
