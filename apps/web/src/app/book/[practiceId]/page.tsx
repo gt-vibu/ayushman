@@ -1,6 +1,9 @@
+"use client";
+
+import { useParams } from 'next/navigation';
 import { PublicBookingFlow } from '@/components/public-booking-flow';
 
-export default async function PracticeBookingPage({ params }: { params: Promise<{ practiceId: string }> }) {
-  const { practiceId } = await params;
-  return <PublicBookingFlow practiceId={practiceId}/>;
+export default function PracticeBookingPage() {
+  const params = useParams<{ practiceId: string }>();
+  return <PublicBookingFlow practiceId={params.practiceId}/>;
 }
