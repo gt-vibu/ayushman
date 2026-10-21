@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: ayushman-api
+    runtime: node
+    region: ohio
+    plan: free
+    branch: main
+    rootDir: .
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @ayushman-v2/api build
+    startCommand: pnpm --filter @ayushman-v2/api start
+    healthCheckPath: /api/v1/health/ready
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: WEB_ORIGIN
+        sync: false
+      - key: ADMIN_WEB_ORIGIN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_URL_UNPOOLED
+        sync: false
+      - key: SESSION_COOKIE_SECRET
+        generateValue: true
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
+      - key: DATABASE_POOL_MAX
+        value: "10"
+      - key: SESSION_TTL_HOURS
+        value: "168"
+      - key: AUTH_RATE_LIMIT_PER_MINUTE
+        value: "12"
+      - key: PUBLIC_BOOKING_RATE_LIMIT_PER_MINUTE
+        value: "30"
+      - key: BOOKING_HOLD_TTL_SECONDS
+        value: "180"

@@ -3,8 +3,9 @@ import { and, eq } from '@ayushman-v2/db/drizzle';
 import type { Database } from '@ayushman-v2/db';
 import {
   membershipPermissionOverrides, permissionCatalog, practiceMembershipLocations,
-  practiceMembershipRoles, practiceMemberships, rolePermissionGrants,
+  practiceMemberships,
 } from '@ayushman-v2/db/schema';
+import { getRolePermissionAssignments } from '../auth/role-permission-assignments.js';
 
 export async function getEffectivePermissions(db: Database, userId: string, practiceId: string, locationId?: string) {
   const [membership] = await db.select({ id: practiceMemberships.id }).from(practiceMemberships)
@@ -12,9 +13,7 @@ export async function getEffectivePermissions(db: Database, userId: string, prac
   if (!membership) throw new ForbiddenException('Active practice membership required');
   const [catalog, grants, overrides, branchAccess] = await Promise.all([
     db.select({ code: permissionCatalog.code }).from(permissionCatalog),
-    db.select({ code: rolePermissionGrants.permissionCode, scope: rolePermissionGrants.scope })
-      .from(practiceMembershipRoles).innerJoin(rolePermissionGrants, eq(rolePermissionGrants.role, practiceMembershipRoles.role))
-      .where(eq(practiceMembershipRoles.membershipId, membership.id)),
+    getRolePermissionAssignments(db, practiceId, membership.id),
     db.select({ code: membershipPermissionOverrides.permissionCode, locationId: membershipPermissionOverrides.locationId, effect: membershipPermissionOverrides.effect })
       .from(membershipPermissionOverrides).where(eq(membershipPermissionOverrides.membershipId, membership.id)),
     locationId ? db.select({ id: practiceMembershipLocations.locationId }).from(practiceMembershipLocations)
@@ -25,7 +24,7 @@ export async function getEffectivePermissions(db: Database, userId: string, prac
     const applicable = overrides.filter((item) => item.code === code && (item.locationId === null || item.locationId === locationId));
     const denied = applicable.some((item) => item.effect === 'deny');
     const allowed = applicable.some((item) => item.effect === 'allow' && (item.locationId === null || hasBranchAccess));
-    const roleAllowed = grants.some((grant) => grant.code === code && (
+    const roleAllowed = grants.some((grant) => grant.permissionCode === code && (
       grant.scope === 'practice' || (grant.scope === 'assigned_locations' && hasBranchAccess) || grant.scope === 'own'
     ));
     return [code, !denied && (allowed || roleAllowed)];

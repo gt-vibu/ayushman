@@ -111,6 +111,17 @@ export const MembershipPermissionOverridesInput = z.object({
   const keys = value.overrides.map((item) => `${item.permissionCode}:${item.locationId ?? 'practice'}`);
   return new Set(keys).size === keys.length;
 }, 'A permission can only have one override per scope');
+export const PracticeRolePermissionSettingsInput = z.object({
+  resetToDefaults: z.boolean().default(false),
+  settings: z.array(z.object({
+    permissionCode: z.string().min(1).max(100),
+    enabled: z.boolean(),
+    scope: z.enum(['practice', 'assigned_locations', 'own']),
+  })).max(200),
+}).refine((value) => {
+  const codes = value.settings.map((item) => item.permissionCode);
+  return new Set(codes).size === codes.length;
+}, 'A permission can only have one role setting');
 export const StaffInvitationInput = z.object({
   email: z.email().max(320),
   roles: z.array(z.enum(['admin', 'professional', 'scheduler'])).min(1).max(3)
@@ -402,6 +413,7 @@ export type StaffRolesInput = z.infer<typeof StaffRolesInput>;
 export type StaffLocationsInput = z.infer<typeof StaffLocationsInput>;
 export type MembershipStatusInput = z.infer<typeof MembershipStatusInput>;
 export type MembershipPermissionOverridesInput = z.infer<typeof MembershipPermissionOverridesInput>;
+export type PracticeRolePermissionSettingsInput = z.infer<typeof PracticeRolePermissionSettingsInput>;
 export type StaffInvitationInput = z.infer<typeof StaffInvitationInput>;
 export type AcceptStaffInvitationInput = z.infer<typeof AcceptStaffInvitationInput>;
 export type AcceptExistingStaffInvitationInput = z.infer<typeof AcceptExistingStaffInvitationInput>;

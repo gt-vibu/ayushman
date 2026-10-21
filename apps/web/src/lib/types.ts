@@ -52,7 +52,7 @@ export type Appointment = {
 
 export type Client = { id: string; fullName: string; email: string | null; phone: string | null; createdAt: string };
 export type Service = { id: string; practiceProfessionId: string; name: string; description?: string | null; durationMinutes: number; bufferBeforeMinutes: number; bufferAfterMinutes: number; priceMinor: number | null; currency: string; active: boolean; onlineBookable: boolean; professionalUserIds?: string[]; locationIds?: string[] };
-export type StaffMember = { membershipId: string; userId: string; email: string; fullName: string; status: string; roles: string[]; locations: { id: string; name: string }[] };
+export type StaffMember = { membershipId: string; userId: string; email: string; fullName: string; status: string; roles: string[]; locations: { id: string; name: string }[]; professionalProfileIds?: string[]; professionalProfiles?: { professionId: string; headline: string | null; bio: string | null; publicProfile: boolean; profileAttributes: unknown }[] };
 
 export const appointmentStatusLabel: Record<Appointment['status'], string> = {
   pending: 'Pending', confirmed: 'Confirmed', checked_in: 'Checked in', in_progress: 'In progress',

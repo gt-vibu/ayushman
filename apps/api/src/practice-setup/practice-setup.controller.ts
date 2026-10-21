@@ -6,11 +6,13 @@ import {
   LocationScopeQuery, LocationUpdateInput, MembershipStatusInput, ProfessionalProfileInput,
   ServiceInput, StaffAssignmentInput, StaffLocationsInput, StaffRolesInput,
   MembershipPermissionOverridesInput,
+  PracticeRolePermissionSettingsInput,
   type LocationInput as LocationPayload, type LocationProfessionInput as LocationProfessionPayload,
   type LocationScopeQuery as LocationScopePayload, type LocationUpdateInput as LocationUpdatePayload,
   type MembershipStatusInput as MembershipStatusPayload, type PracticeProfessionInput as ProfessionPayload,
   type PracticeProfessionUpdateInput as ProfessionUpdatePayload,
   type MembershipPermissionOverridesInput as PermissionOverridesPayload,
+  type PracticeRolePermissionSettingsInput as RolePermissionSettingsPayload,
   type PracticeUpdateInput as PracticeUpdatePayload, type ProfessionalProfileInput as ProfilePayload,
   type ServiceInput as ServicePayload, type StaffAssignmentInput as StaffPayload,
   type StaffLocationsInput as StaffLocationsPayload, type StaffRolesInput as StaffRolesPayload,
@@ -101,6 +103,16 @@ export class PracticeSetupController {
   @Get('permissions')
   listPermissionCatalog(@Req() req: AuthenticatedRequest, @Param('practiceId') id: string) {
     return this.setup.listPermissionCatalog(req.user.id, id);
+  }
+
+  @Get('role-permissions')
+  listPracticeRolePermissionSettings(@Req() req: AuthenticatedRequest, @Param('practiceId') id: string) {
+    return this.setup.listPracticeRolePermissionSettings(req.user.id, id);
+  }
+
+  @Put('role-permissions/:role')
+  replacePracticeRolePermissionSettings(@Req() req: AuthenticatedRequest, @Param('practiceId') id: string, @Param('role') role: string, @Body(new ZodValidationPipe(PracticeRolePermissionSettingsInput)) body: RolePermissionSettingsPayload) {
+    return this.setup.replacePracticeRolePermissionSettings(req.user.id, id, role, body);
   }
 
   @Get('staff/:userId/permissions')

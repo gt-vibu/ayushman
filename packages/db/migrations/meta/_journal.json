@@ -162,6 +162,13 @@
       "when": 1792562517881,
       "tag": "0022_allow_booking_holds",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792571895067,
+      "tag": "0023_practice_role_permission_settings",
+      "breakpoints": true
     }
   ]
 }

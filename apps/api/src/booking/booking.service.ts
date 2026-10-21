@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto';
 import { BadRequestException, ConflictException, HttpException, Inject, Injectable, NotFoundException, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import Redis from 'ioredis';
 import { and, asc, eq, gt, gte, inArray, isNull, lt, lte, or, sql } from '@ayushman-v2/db/drizzle';
 import type { Database } from '@ayushman-v2/db';
 import {
@@ -11,7 +10,7 @@ import {
 } from '@ayushman-v2/db/schema';
 import type { PublicAvailabilityQuery, PublicBookingHoldInput, PublicBookingInput, PublicDirectoryQuery } from '@ayushman-v2/contracts';
 import { DATABASE } from '../database.module.js';
-import { REDIS } from '../redis.module.js';
+import { REDIS, type RedisStore } from '../redis.module.js';
 import { readEnvironment } from '../config.js';
 import { addLocalDays, localDateTime, localNowDate, weekdayForDate } from './time.js';
 
@@ -60,7 +59,7 @@ export class BookingService implements OnModuleInit, OnModuleDestroy {
   private readonly publicPracticeInflight = new Map<string, Promise<unknown>>();
   private holdExpiryTimer: NodeJS.Timeout | undefined;
 
-  constructor(@Inject(DATABASE) private readonly db: Database, @Inject(REDIS) private readonly redis: Redis) {}
+  constructor(@Inject(DATABASE) private readonly db: Database, @Inject(REDIS) private readonly redis: RedisStore) {}
 
   onModuleInit() {
     this.holdExpiryTimer = setInterval(() => { void this.expireBookingHolds().catch(() => undefined); }, 5_000);

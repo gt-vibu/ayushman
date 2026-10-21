@@ -3,12 +3,12 @@ import { and, eq, isNull, sql } from '@ayushman-v2/db/drizzle';
 import type { Database } from '@ayushman-v2/db';
 import {
   locations, locationProfessions, practiceMembershipLocations, practiceMembershipRoles,
-  membershipPermissionOverrides, permissionCatalog, practiceMemberships, practiceProfessions, practices, professionalLocations,
+  membershipPermissionOverrides, permissionCatalog, practiceMemberships, practiceRolePermissionSettings, practiceProfessions, practices, professionalLocations, rolePermissionGrants,
   professionalProfiles, serviceLocations, serviceProfessionals, services, users,
 } from '@ayushman-v2/db/schema';
 import type {
   LocationInput, LocationProfessionInput, PracticeProfessionInput, PracticeUpdateInput,
-  LocationUpdateInput, MembershipPermissionOverridesInput, MembershipStatusInput, PracticeProfessionUpdateInput,
+  LocationUpdateInput, MembershipPermissionOverridesInput, MembershipStatusInput, PracticeRolePermissionSettingsInput, PracticeProfessionUpdateInput,
   ProfessionalProfileInput, ServiceInput,
   StaffAssignmentInput, StaffLocationsInput, StaffRolesInput,
 } from '@ayushman-v2/contracts';
@@ -172,6 +172,18 @@ export class PracticeSetupService {
       .leftJoin(practiceMembershipLocations, and(eq(practiceMembershipLocations.membershipId, practiceMemberships.id), locationId ? eq(practiceMembershipLocations.locationId, locationId) : sql`true`))
       .leftJoin(locations, eq(locations.id, practiceMembershipLocations.locationId))
       .where(and(eq(practiceMemberships.practiceId, practiceId), eq(practiceMemberships.status, 'active'), locationId ? eq(practiceMembershipLocations.locationId, locationId) : sql`true`));
+    const profileRows = await this.db.select({
+      userId: professionalProfiles.userId, professionId: professionalProfiles.practiceProfessionId,
+      headline: professionalProfiles.headline, bio: professionalProfiles.bio,
+      publicProfile: professionalProfiles.publicProfile, profileAttributes: professionalProfiles.profileAttributes,
+    })
+      .from(professionalProfiles).where(eq(professionalProfiles.practiceId, practiceId));
+    const profilesByUser = new Map<string, typeof profileRows>();
+    for (const profile of profileRows) {
+      const profiles = profilesByUser.get(profile.userId) ?? [];
+      profiles.push(profile);
+      profilesByUser.set(profile.userId, profiles);
+    }
     const members = new Map<string, { membershipId: string; userId: string; email: string; fullName: string; status: string; roles: Set<string>; locations: Map<string, string> }>();
     for (const row of rows) {
       const member = members.get(row.membershipId) ?? {
@@ -182,7 +194,10 @@ export class PracticeSetupService {
       if (row.locationId && row.locationName) member.locations.set(row.locationId, row.locationName);
       members.set(member.membershipId, member);
     }
-    return [...members.values()].map((member) => ({ ...member, roles: [...member.roles], locations: [...member.locations].map(([id, name]) => ({ id, name })) }));
+    return [...members.values()].map((member) => {
+      const profiles = profilesByUser.get(member.userId) ?? [];
+      return { ...member, roles: [...member.roles], locations: [...member.locations].map(([id, name]) => ({ id, name })), professionalProfileIds: profiles.map((profile) => profile.professionId), professionalProfiles: profiles.map(({ userId: _userId, ...profile }) => profile) };
+    });
   }
 
   async updateStaffRoles(actorId: string, practiceId: string, targetUserId: string, input: StaffRolesInput) {
@@ -193,7 +208,8 @@ export class PracticeSetupService {
     const currentRoles = await this.db.select({ role: practiceMembershipRoles.role }).from(practiceMembershipRoles)
       .where(eq(practiceMembershipRoles.membershipId, target.id));
     if (currentRoles.some((row) => row.role === 'owner')) throw new ForbiddenException('Owner access cannot be changed through staff role management');
-    if (input.roles.includes('admin') && !await this.isOwner(actorId, practiceId)) {
+    const alreadyAdministrator = currentRoles.some((row) => row.role === 'admin');
+    if (input.roles.includes('admin') && !await this.isOwner(actorId, practiceId) && !(alreadyAdministrator && actorId === targetUserId)) {
       throw new ForbiddenException('Only a practice owner can grant administrator access');
     }
     await this.db.transaction(async (tx) => {
@@ -232,6 +248,42 @@ export class PracticeSetupService {
   async listPermissionCatalog(actorId: string, practiceId: string) {
     await this.authorization.assertPermission({ userId: actorId, practiceId, permissionCode: 'staff.manage' });
     return this.db.select().from(permissionCatalog).orderBy(permissionCatalog.code);
+  }
+
+  async listPracticeRolePermissionSettings(actorId: string, practiceId: string) {
+    await this.authorization.assertPermission({ userId: actorId, practiceId, permissionCode: 'staff.manage' });
+    if (!await this.isOwner(actorId, practiceId)) throw new ForbiddenException('Only a practice owner can edit role permission defaults');
+    const [permissions, defaults, settings] = await Promise.all([
+      this.db.select().from(permissionCatalog).orderBy(permissionCatalog.code),
+      this.db.select().from(rolePermissionGrants),
+      this.db.select().from(practiceRolePermissionSettings).where(eq(practiceRolePermissionSettings.practiceId, practiceId)),
+    ]);
+    return { permissions, defaults: defaults.filter((item) => item.role !== 'owner'), settings, editableRoles: ['admin', 'professional', 'scheduler'] as const };
+  }
+
+  async replacePracticeRolePermissionSettings(actorId: string, practiceId: string, role: string, input: PracticeRolePermissionSettingsInput) {
+    await this.authorization.assertPermission({ userId: actorId, practiceId, permissionCode: 'staff.manage' });
+    if (!await this.isOwner(actorId, practiceId)) throw new ForbiddenException('Only a practice owner can edit role permission defaults');
+    const editableRoles = ['admin', 'professional', 'scheduler'] as const;
+    if (!editableRoles.includes(role as typeof editableRoles[number])) throw new BadRequestException('Only hired staff roles can be configured');
+    const editableRole = role as typeof editableRoles[number];
+    if (input.resetToDefaults) {
+      if (input.settings.length) throw new BadRequestException('Reset to defaults cannot include custom settings');
+      await this.db.delete(practiceRolePermissionSettings).where(and(eq(practiceRolePermissionSettings.practiceId, practiceId), eq(practiceRolePermissionSettings.role, editableRole)));
+      return { role: editableRole, resetToDefaults: true };
+    }
+    const permissions = await this.db.select({ code: permissionCatalog.code }).from(permissionCatalog);
+    const submitted = new Set(input.settings.map((item) => item.permissionCode));
+    if (submitted.size !== permissions.length || permissions.some((item) => !submitted.has(item.code))) {
+      throw new BadRequestException('Submit one setting for every permission, or reset this role to system defaults');
+    }
+    await this.db.transaction(async (tx) => {
+      await tx.delete(practiceRolePermissionSettings).where(and(eq(practiceRolePermissionSettings.practiceId, practiceId), eq(practiceRolePermissionSettings.role, editableRole)));
+      await tx.insert(practiceRolePermissionSettings).values(input.settings.map((setting) => ({
+        practiceId, role: editableRole, permissionCode: setting.permissionCode, enabled: setting.enabled, scope: setting.scope,
+      })));
+    });
+    return { role: editableRole, settings: input.settings };
   }
 
   async listStaffPermissionOverrides(actorId: string, practiceId: string, targetUserId: string) {
@@ -274,12 +326,14 @@ export class PracticeSetupService {
   async addProfessionalProfile(userId: string, practiceId: string, professionalUserId: string, input: ProfessionalProfileInput) {
     await this.authorization.assertPermission({ userId, practiceId, permissionCode: 'staff.manage' });
     await this.assertProfession(practiceId, input.practiceProfessionId);
-    const [membership] = await this.db.select({ id: practiceMemberships.id }).from(practiceMemberships)
-      .innerJoin(practiceMembershipRoles, eq(practiceMembershipRoles.membershipId, practiceMemberships.id))
+    const memberships = await this.db.select({ id: practiceMemberships.id, role: practiceMembershipRoles.role }).from(practiceMemberships)
+      .leftJoin(practiceMembershipRoles, eq(practiceMembershipRoles.membershipId, practiceMemberships.id))
       .innerJoin(users, and(eq(users.id, practiceMemberships.userId), isNull(users.disabledAt)))
-      .where(and(eq(practiceMemberships.practiceId, practiceId), eq(practiceMemberships.userId, professionalUserId), eq(practiceMemberships.status, 'active'), eq(practiceMembershipRoles.role, 'professional')))
-      .limit(1);
-    if (!membership) throw new BadRequestException('The user must be an active professional member of this practice');
+      .where(and(eq(practiceMemberships.practiceId, practiceId), eq(practiceMemberships.userId, professionalUserId), eq(practiceMemberships.status, 'active')));
+    const membership = memberships[0];
+    const roles = new Set(memberships.map((row) => row.role).filter((role) => role !== null));
+    const ownerEditingSelf = userId === professionalUserId && roles.has('owner');
+    if (!membership || (!roles.has('professional') && !ownerEditingSelf)) throw new BadRequestException('The user must be an active professional member of this practice');
     const locationsValid = await this.assertLocations(practiceId, input.locationIds);
     if (locationsValid.length) {
       const enabledLocations = await this.db.select({ id: locationProfessions.locationId }).from(locationProfessions)
@@ -287,6 +341,9 @@ export class PracticeSetupService {
       if (enabledLocations.length !== locationsValid.length) throw new BadRequestException('Enable the profession at each selected branch before assigning this professional');
     }
     const [profile] = await this.db.transaction(async (tx) => {
+      if (ownerEditingSelf && !roles.has('professional')) {
+        await tx.insert(practiceMembershipRoles).values({ membershipId: membership.id, role: 'professional' }).onConflictDoNothing();
+      }
       const [created] = await tx.insert(professionalProfiles).values({
         practiceProfessionId: input.practiceProfessionId, practiceId, userId: professionalUserId,
         headline: input.headline, bio: input.bio, profileAttributes: input.profileAttributes, publicProfile: input.publicProfile,

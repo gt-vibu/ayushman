@@ -3,20 +3,19 @@ import { ConflictException, HttpException, Injectable, UnauthorizedException } f
 import { Inject } from '@nestjs/common';
 import { and, eq, gt, isNull, sql } from '@ayushman-v2/db/drizzle';
 import * as argon2 from 'argon2';
-import Redis from 'ioredis';
 import type { Database } from '@ayushman-v2/db';
 import { bookingPolicies, customerProfiles, platformMembershipRoles, platformMemberships, practiceMembershipRoles, practiceMemberships, practices, sessions, users } from '@ayushman-v2/db/schema';
 import type { CustomerRegistrationInput, LoginInput, RegistrationInput } from '@ayushman-v2/contracts';
 import { DATABASE } from '../database.module.js';
 import { readEnvironment } from '../config.js';
-import { REDIS } from '../redis.module.js';
+import { REDIS, type RedisStore } from '../redis.module.js';
 
 const hashToken = (token: string): string => createHash('sha256').update(token).digest('hex');
 const normalizeEmail = (email: string): string => email.trim().toLocaleLowerCase('en-US');
 
 @Injectable()
 export class AuthService {
-  constructor(@Inject(DATABASE) private readonly db: Database, @Inject(REDIS) private readonly redis: Redis) {}
+  constructor(@Inject(DATABASE) private readonly db: Database, @Inject(REDIS) private readonly redis: RedisStore) {}
 
   async limitAuthentication(ip: string): Promise<void> {
     const minute = Math.floor(Date.now() / 60_000);

@@ -4,14 +4,13 @@ import type { Database } from '@ayushman-v2/db';
 import {
   membershipPermissionOverrides,
   practiceMembershipLocations,
-  practiceMembershipRoles,
   practiceMemberships,
   platformMembershipRoles,
   platformMemberships,
   platformRolePermissionGrants,
-  rolePermissionGrants,
 } from '@ayushman-v2/db/schema';
 import { DATABASE } from '../database.module.js';
+import { getRolePermissionAssignments } from './role-permission-assignments.js';
 
 export interface PermissionCheck {
   userId: string;
@@ -54,12 +53,7 @@ export class AuthorizationService {
           eq(membershipPermissionOverrides.membershipId, membership.id),
           eq(membershipPermissionOverrides.permissionCode, check.permissionCode),
         )),
-      this.db.select({ scope: rolePermissionGrants.scope })
-        .from(practiceMembershipRoles).innerJoin(rolePermissionGrants, eq(practiceMembershipRoles.role, rolePermissionGrants.role))
-        .where(and(
-          eq(practiceMembershipRoles.membershipId, membership.id),
-          eq(rolePermissionGrants.permissionCode, check.permissionCode),
-        )),
+      getRolePermissionAssignments(this.db, check.practiceId, membership.id, check.permissionCode),
     ]);
     const hasBranchAccess = Boolean(branchAccess.length);
     const applicable = overrides.filter((row) =>
@@ -119,14 +113,7 @@ export class AuthorizationService {
     if (practiceWideAllow) return true;
     if (locationAllow && hasBranchAccess) return true;
 
-    const grants = await this.db
-      .select({ scope: rolePermissionGrants.scope })
-      .from(practiceMembershipRoles)
-      .innerJoin(rolePermissionGrants, eq(practiceMembershipRoles.role, rolePermissionGrants.role))
-      .where(and(
-        eq(practiceMembershipRoles.membershipId, membership.id),
-        eq(rolePermissionGrants.permissionCode, check.permissionCode),
-      ));
+    const grants = await getRolePermissionAssignments(this.db, check.practiceId, membership.id, check.permissionCode);
 
     return grants.some(({ scope }) => {
       if (scope === 'practice') return true;
@@ -160,9 +147,7 @@ export class AuthorizationService {
     const applicableAllow = overrides.some((item) => item.effect === 'allow' &&
       (item.locationId === null || item.locationId === check.locationId));
     if (applicableAllow) return false;
-    const grants = await this.db.select({ scope: rolePermissionGrants.scope })
-      .from(practiceMembershipRoles).innerJoin(rolePermissionGrants, eq(practiceMembershipRoles.role, rolePermissionGrants.role))
-      .where(and(eq(practiceMembershipRoles.membershipId, membership.id), eq(rolePermissionGrants.permissionCode, check.permissionCode)));
+    const grants = await getRolePermissionAssignments(this.db, check.practiceId, membership.id, check.permissionCode);
     return grants.some((grant) => grant.scope === 'own') && !grants.some((grant) => grant.scope === 'practice');
   }
 

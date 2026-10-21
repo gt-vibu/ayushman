@@ -2,7 +2,7 @@ import { boolean, foreignKey, index, pgTable, primaryKey, timestamp, uniqueIndex
 import { sql } from 'drizzle-orm';
 import { createdAt } from './shared.js';
 import { accessScope, membershipRole, permissionEffect } from './shared.js';
-import { locations, practiceMemberships } from './identity.js';
+import { locations, practiceMemberships, practices } from './identity.js';
 
 export const permissionCatalog = pgTable('permission_catalog', {
   code: varchar('code', { length: 100 }).primaryKey(),
@@ -24,6 +24,24 @@ export const rolePermissionGrants = pgTable(
   (table) => [
     primaryKey({ columns: [table.role, table.permissionCode] }),
     index('role_permission_code_idx').on(table.permissionCode, table.role),
+  ],
+);
+
+/** Per-practice role policy. Missing rows inherit the system role defaults. */
+export const practiceRolePermissionSettings = pgTable(
+  'practice_role_permission_settings',
+  {
+    practiceId: uuid('practice_id').notNull().references(() => practices.id, { onDelete: 'cascade' }),
+    role: membershipRole('role').notNull(),
+    permissionCode: varchar('permission_code', { length: 100 }).notNull()
+      .references(() => permissionCatalog.code, { onDelete: 'cascade' }),
+    enabled: boolean('enabled').notNull(),
+    scope: accessScope('scope').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.practiceId, table.role, table.permissionCode] }),
+    index('practice_role_permission_lookup_idx').on(table.practiceId, table.permissionCode, table.role),
   ],
 );
 
