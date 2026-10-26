@@ -50,12 +50,15 @@ export function SetupAssistant({ practice, branchId, branches, services, staff }
     };
   }, [practice.id, branchId]);
 
-  const activeProviders = staff.filter((member) => member.status === 'active' && member.roles.includes('professional') && (member.professionalProfileIds?.length ?? 0) > 0);
+  // A saved professional profile is the source of truth for this checklist
+  // item. Owners can provide services too, and their role labels can differ
+  // from hired practitioners even though the profile is active.
+  const activeProviders = staff.filter((member) => member.status === 'active' && (member.professionalProfileIds?.length ?? 0) > 0);
   const activeBranch = branches.find((branch) => branch.id === branchId && branch.active);
   const onlineService = services.find((service) => service.active && service.onlineBookable && service.locationIds?.includes(branchId));
   const eligibleOnlineProviders = onlineService
     ? (onlineService.professionalUserIds ?? []).map((id) => staff.find((member) => member.userId === id))
-      .filter((member) => member?.status === 'active' && member.roles.includes('professional') && member.professionalProfileIds?.includes(onlineService.practiceProfessionId))
+      .filter((member) => member?.status === 'active' && member.professionalProfileIds?.includes(onlineService.practiceProfessionId))
     : [];
   // Availability is its own setup step. Don't make it appear incomplete just
   // because the provider profile or online service assignment is unfinished;
