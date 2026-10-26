@@ -390,14 +390,16 @@ export class AppointmentManagementService {
     if (price !== null && input.amountPaidMinor > price) throw new BadRequestException('Amount received cannot exceed the visit rate');
     const startsAt = new Date(input.startsAt);
     let timezone = practice?.timezone ?? 'UTC';
-    if (!input.isWalkIn) {
+    if (!input.historicalEntry) {
       const date = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(startsAt);
       const availability = await this.booking.availableSlots(practiceId, {
         serviceId: service.id, locationId: input.locationId, professionalUserId: input.professionalUserId, from: date, to: date,
       }, true, true);
       timezone = availability.timezone;
-      if (!availability.slots.some((slot) => slot.startsAt === startsAt.toISOString() && slot.professional.id === input.professionalUserId)) {
-        throw new ConflictException('That time is outside this practitioner’s open slots. Choose an available time or mark the visit as a walk-in.');
+      if (input.isWalkIn ? availability.slots.length === 0 : !availability.slots.some((slot) => slot.startsAt === startsAt.toISOString() && slot.professional.id === input.professionalUserId)) {
+        throw new ConflictException(input.isWalkIn
+          ? 'This practitioner is unavailable on that date. Choose an available date or record it as a historical visit.'
+          : 'That time is outside this practitioner’s open slots. Choose an available time or mark the visit as a walk-in.');
       }
     }
     const endsAt = new Date(startsAt.getTime() + duration * 60_000);
@@ -802,7 +804,7 @@ export class AppointmentManagementService {
     if (!appointment) throw new NotFoundException('Appointment not found');
     await this.authorization.assertPermission({ userId, practiceId, permissionCode: 'appointments.update', locationId: appointment.locationId, resourceOwnerUserId: appointment.professionalUserId });
     if (!['pending', 'confirmed'].includes(appointment.status) || appointment.startsAt <= new Date()) throw new BadRequestException('Only future pending or confirmed appointments can be moved');
-    if (query.serviceId !== appointment.serviceId || query.locationId !== appointment.locationId || (query.professionalUserId && query.professionalUserId !== appointment.professionalUserId) || query.from !== query.to) throw new BadRequestException('Choose a date for the same service, location, and professional');
+    if (query.serviceId !== appointment.serviceId || query.locationId !== appointment.locationId || (query.professionalUserId && query.professionalUserId !== appointment.professionalUserId)) throw new BadRequestException('Choose the same service, location, and professional');
     return this.booking.availableSlots(practiceId, query, true, true, appointment.id);
   }
 
@@ -813,8 +815,8 @@ export class AppointmentManagementService {
     await this.authorization.assertPermission(scope);
     if (await this.authorization.requiresOwnScope(scope)) throw new ForbiddenException('Only a scheduler or practice manager can reassign a practitioner');
     if (!['pending', 'confirmed'].includes(appointment.status) || appointment.startsAt <= new Date()) throw new BadRequestException('Only a future, not-yet-started appointment can be reassigned');
-    if (!query.professionalUserId || query.professionalUserId === appointment.professionalUserId || query.serviceId !== appointment.serviceId || query.locationId !== appointment.locationId || query.from !== query.to) {
-      throw new BadRequestException('Choose a different practitioner and one date for this appointment');
+    if (!query.professionalUserId || query.professionalUserId === appointment.professionalUserId || query.serviceId !== appointment.serviceId || query.locationId !== appointment.locationId) {
+      throw new BadRequestException('Choose a different practitioner for this appointment');
     }
     return this.booking.availableSlots(practiceId, query, true, true, appointment.id);
   }
