@@ -7,7 +7,9 @@ services:
     branch: main
     rootDir: .
     buildCommand: pnpm install --frozen-lockfile && pnpm --filter @ayushman-v2/api build
-    startCommand: pnpm --filter @ayushman-v2/api db:migrate && pnpm --filter @ayushman-v2/api start
+    # Apply migrations to the exact database the API uses. DATABASE_URL_UNPOOLED
+    # is reserved for local/Neon migration workflows and may target another DB.
+    startCommand: env -u DATABASE_URL_UNPOOLED pnpm --filter @ayushman-v2/api db:migrate && pnpm --filter @ayushman-v2/api start
     healthCheckPath: /api/v1/health/ready
     autoDeployTrigger: commit
     envVars:
