@@ -5,3 +5,5 @@
 .calendar-date-field .ui-date-trigger,.calendar-sort-field .ui-select-trigger{min-height:39px;font-size:11px}
 .calendar-selected-date{margin:0 0 10px auto;color:var(--muted-foreground);font-size:11px}
 @media(max-width:640px){.calendar-toolbar{align-items:stretch}.calendar-date-field,.calendar-sort-field{width:100%}.calendar-selected-date{margin:2px 0 0}}
+[data-theme='dark'] .calendar-toolbar,.dark .calendar-toolbar{background:var(--card);border-color:var(--border);color:var(--foreground)}
+[data-theme='dark'] .calendar-date-field,[data-theme='dark'] .calendar-sort-field,.dark .calendar-date-field,.dark .calendar-sort-field{color:var(--muted-foreground)}

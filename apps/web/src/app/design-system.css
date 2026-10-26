@@ -310,6 +310,14 @@
 [data-theme='dark'] .customer-auth-aside h2 em { color: var(--primary); }
 [data-theme='dark'] .records-promo { background: radial-gradient(ellipse at 90% 15%, #8b55502b, transparent 42%), linear-gradient(135deg, #2a2324, #211f21); color: var(--foreground); border-color: var(--border); }
 [data-theme='dark'] .records-promo > p:not(.eyebrow) { color: var(--muted-foreground); }
+[data-theme='dark'] .records-form input:not([type='checkbox']),
+.dark .records-form input:not([type='checkbox']) { background: var(--card); color: var(--foreground); border-color: var(--border); color-scheme: dark; }
+[data-theme='dark'] .records-form input::placeholder,
+.dark .records-form input::placeholder { color: var(--muted-foreground); opacity: 1; }
+[data-theme='dark'] .records-form input[type='file']::file-selector-button,
+.dark .records-form input[type='file']::file-selector-button { margin-right: 10px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--muted); color: var(--foreground); cursor: pointer; }
+[data-theme='dark'] .records-form input[type='file']::file-selector-button:hover,
+.dark .records-form input[type='file']::file-selector-button:hover { background: color-mix(in srgb, var(--primary) 18%, var(--muted)); }
 [data-theme='dark'] .timeline-appointment { background: #23332c; }
 [data-theme='dark'] .timeline-tone-1 { background: #382a27; }
 [data-theme='dark'] .timeline-tone-2 { background: #30283a; }
