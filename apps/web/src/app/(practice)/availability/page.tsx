@@ -91,7 +91,25 @@ export default function AvailabilityPage() {
         body: JSON.stringify(parsed.data),
       });
       setMessage('Your availability is saved. Customers can now see eligible start times.');
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save availability.'); }
+    } catch (cause) {
+      const isOwner = session.practices.find((membership) => membership.practiceId === practice.id)?.roles.includes('owner') ?? false;
+      const needsAssignment = cause instanceof Error && cause.message.toLowerCase().includes('not assigned to this profession and location');
+      if (isOwner && needsAssignment) {
+        try {
+          const members = await api<Array<{ userId: string; professionalProfiles?: Array<{ professionId: string; headline: string | null; bio: string | null; profileAttributes: Record<string, string | string[]>; publicProfile: boolean; locationIds: string[] }> }>>(practicePath(practice.id, '/staff'));
+          const ownProfile = members.find((member) => member.userId === session.user.id)?.professionalProfiles?.find((profile) => profile.professionId === professionId);
+          const locationIds = [...new Set([...(ownProfile?.locationIds ?? []), activeBranchId])];
+          await api(practicePath(practice.id, `/staff/${session.user.id}/professional-profile`), {
+            method: 'POST',
+            body: JSON.stringify({ practiceProfessionId: professionId, locationIds, headline: ownProfile?.headline ?? null, bio: ownProfile?.bio ?? null, profileAttributes: ownProfile?.profileAttributes ?? {}, publicProfile: ownProfile?.publicProfile ?? false }),
+          });
+          await api(practicePath(practice.id, '/availability/professional-schedule'), { method: 'PUT', body: JSON.stringify(parsed.data) });
+          setMessage('Your practitioner profile is now assigned to this branch and your availability is saved. Existing branch assignments were kept.');
+        } catch (assignmentCause) {
+          setError(assignmentCause instanceof Error ? assignmentCause.message : 'Could not assign your practitioner profile and save availability.');
+        }
+      } else setError(cause instanceof Error ? cause.message : 'Could not save availability.');
+    }
     finally { setBusy(false); }
   }
 
