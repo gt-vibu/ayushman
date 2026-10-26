@@ -57,11 +57,16 @@ export function SetupAssistant({ practice, branchId, branches, services, staff }
     ? (onlineService.professionalUserIds ?? []).map((id) => staff.find((member) => member.userId === id))
       .filter((member) => member?.status === 'active' && member.roles.includes('professional') && member.professionalProfileIds?.includes(onlineService.practiceProfessionId))
     : [];
-  const hasOnlineSchedule = eligibleOnlineProviders.some((member) => rules?.some((rule) =>
-    (rule.scope === 'professional_location' && rule.locationId === branchId || rule.scope === 'professional' && !rule.locationId) &&
-    rule.professionalUserId === member?.userId &&
-    rule.practiceProfessionId === onlineService?.practiceProfessionId && rule.endMinute > rule.startMinute,
-  ));
+  // Availability is its own setup step. Don't make it appear incomplete just
+  // because the provider profile or online service assignment is unfinished;
+  // those have separate checklist steps. The saved rule must still be a valid
+  // provider/profession schedule for the currently selected branch.
+  const hasProviderSchedule = rules?.some((rule) =>
+    rule.scope === 'professional_location' &&
+    rule.locationId === branchId &&
+    Boolean(rule.professionalUserId && rule.practiceProfessionId) &&
+    rule.endMinute > rule.startMinute,
+  ) ?? false;
   const steps = [
     {
       label: 'Choose your first branch',
@@ -83,7 +88,7 @@ export function SetupAssistant({ practice, branchId, branches, services, staff }
     },
     {
       label: 'Set provider availability',
-      done: Boolean(hasOnlineSchedule),
+      done: hasProviderSchedule,
       href: '/availability',
       icon: CalendarClock,
     },
