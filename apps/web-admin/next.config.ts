@@ -3,7 +3,7 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   outputFileTracingRoot: process.cwd(),
-  distDir: process.env.NODE_ENV === 'development' ? '.next-dev' : '.next',
+  distDir: process.env.NEXT_DIST_DIR ?? (process.env.NODE_ENV === 'development' ? '.next-dev' : '.next-codex-local'),
   // This app is mounted publicly at /platform by the root Vercel services config.
   // Local standalone development continues to use the root path.
   ...(process.env.VERCEL ? { basePath: '/platform' } : {}),

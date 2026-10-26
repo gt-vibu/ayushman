@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, eq, gt, gte, inArray, isNull, lt, lte, or, sql } from '@ayushman-v2/db/drizzle';
 import type { Database } from '@ayushman-v2/db';
 import { appointments, availabilityExceptions, availabilityRules, bookingPolicies, clients, locations, practiceMembershipRoles, practiceMemberships, practiceProfessions, professionalLocations, professionalProfiles, practices, users } from '@ayushman-v2/db/schema';
@@ -41,6 +41,36 @@ export class AvailabilitySetupService {
       .innerJoin(professionalProfiles, and(eq(professionalProfiles.practiceProfessionId, professionalLocations.practiceProfessionId), eq(professionalProfiles.userId, professionalLocations.userId)))
       .where(and(eq(professionalLocations.practiceId, practiceId), eq(professionalLocations.practiceProfessionId, input.practiceProfessionId), eq(professionalLocations.userId, userId), eq(professionalLocations.locationId, input.locationId))).limit(1);
     if (!assignment) throw new NotFoundException('You are not assigned to this profession and location');
+    const [practice] = await this.db.select({ timezone: practices.timezone }).from(practices).where(eq(practices.id, practiceId)).limit(1);
+    if (practice) {
+      const upcoming = await this.db.select({ id: appointments.id, startsAt: appointments.startsAt, endsAt: appointments.endsAt, reservedStartsAt: appointments.reservedStartsAt, reservedEndsAt: appointments.reservedEndsAt })
+        .from(appointments).where(and(
+          eq(appointments.practiceId, practiceId), eq(appointments.locationId, input.locationId),
+          eq(appointments.professionalUserId, userId), eq(appointments.practiceProfessionId, input.practiceProfessionId),
+          inArray(appointments.status, ['pending', 'confirmed']), gt(appointments.startsAt, new Date()),
+        )).orderBy(appointments.startsAt).limit(51);
+      if (upcoming.length > 50) {
+        throw new ConflictException('There are more than 50 upcoming appointments for this schedule. Move or cancel them in smaller groups before changing these hours.');
+      }
+      const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: practice.timezone, weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+      const weekdayIndex: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+      const toLocalParts = (value: Date) => {
+        const parts = formatter.formatToParts(value);
+        const get = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
+        return { weekday: weekdayIndex[get('weekday')], minute: Number(get('hour')) * 60 + Number(get('minute')) };
+      };
+      const conflicts = upcoming.filter((appointment) => {
+        const start = toLocalParts(appointment.reservedStartsAt ?? appointment.startsAt);
+        const end = toLocalParts(appointment.reservedEndsAt ?? appointment.endsAt);
+        return start.weekday === undefined || end.weekday !== start.weekday || !input.rules.some((rule) =>
+          rule.weekday === start.weekday && rule.startMinute <= start.minute && rule.endMinute >= end.minute);
+      });
+      if (conflicts.length) {
+        throw new ConflictException(conflicts.length > 50
+          ? 'More than 50 upcoming appointments would fall outside this schedule. Keep the current hours, or move appointments before changing the schedule.'
+          : `${conflicts.length} upcoming appointment${conflicts.length === 1 ? '' : 's'} would fall outside these hours. Move or cancel them before saving the new schedule.`);
+      }
+    }
     const values = input.rules.map((rule) => ({
       practiceId, scope: 'professional_location' as const, practiceProfessionId: input.practiceProfessionId,
       locationId: input.locationId, professionalUserId: userId, ...rule,
@@ -86,23 +116,26 @@ export class AvailabilitySetupService {
         if (!assignment) throw new BadRequestException('Professional is not assigned to this branch');
       }
     }
+    let conflicts: Array<{ id: string; clientName: string; serviceName: string; startsAt: Date; endsAt: Date }> = [];
+    if (input.kind === 'closed' && practice) {
+      const start = localDateTime(input.date, input.startMinute ?? 0, practice.timezone);
+      const end = localDateTime(input.date, input.endMinute ?? 1440, practice.timezone);
+      if (!start || !end || end <= start) throw new BadRequestException('The closure time does not exist in the practice timezone');
+      {
+        const filters = [eq(appointments.practiceId, practiceId), inArray(appointments.status, ['pending', 'confirmed']), gt(appointments.startsAt, new Date()), lt(appointments.reservedStartsAt, end), gt(appointments.reservedEndsAt, start)];
+        if (input.locationId) filters.push(eq(appointments.locationId, input.locationId));
+        if (input.professionalUserId) filters.push(eq(appointments.professionalUserId, input.professionalUserId));
+        if (input.practiceProfessionId) filters.push(eq(appointments.practiceProfessionId, input.practiceProfessionId));
+        conflicts = await this.db.select({ id: appointments.id, clientName: clients.fullName, serviceName: appointments.serviceNameSnapshot, startsAt: appointments.startsAt, endsAt: appointments.endsAt })
+          .from(appointments).innerJoin(clients, eq(clients.id, appointments.clientId)).where(and(...filters)).orderBy(appointments.startsAt).limit(51);
+        if (conflicts.length > 50) throw new ConflictException('More than 50 appointments overlap this closure. Narrow the time range before saving it.');
+      }
+    }
     const [exception] = await this.db.insert(availabilityExceptions).values({
       practiceId, locationId: input.locationId, professionalUserId: input.professionalUserId,
       practiceProfessionId: input.practiceProfessionId, date: input.date, kind: input.kind,
       startMinute: input.startMinute, endMinute: input.endMinute, reason: input.reason,
     }).returning();
-    let conflicts: Array<{ id: string; clientName: string; serviceName: string; startsAt: Date; endsAt: Date }> = [];
-    if (input.kind === 'closed' && practice) {
-      const start = localDateTime(input.date, input.startMinute ?? 0, practice.timezone);
-      const end = localDateTime(input.date, input.endMinute ?? 1440, practice.timezone);
-      if (start && end) {
-        const filters = [eq(appointments.practiceId, practiceId), inArray(appointments.status, ['pending', 'confirmed']), gt(appointments.startsAt, new Date()), lt(appointments.reservedStartsAt, end), gt(appointments.reservedEndsAt, start)];
-        if (input.locationId) filters.push(eq(appointments.locationId, input.locationId));
-        if (input.professionalUserId) filters.push(eq(appointments.professionalUserId, input.professionalUserId));
-        conflicts = await this.db.select({ id: appointments.id, clientName: clients.fullName, serviceName: appointments.serviceNameSnapshot, startsAt: appointments.startsAt, endsAt: appointments.endsAt })
-          .from(appointments).innerJoin(clients, eq(clients.id, appointments.clientId)).where(and(...filters)).orderBy(appointments.startsAt).limit(50);
-      }
-    }
     return { exception, conflicts };
   }
 

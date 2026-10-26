@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { BadRequestException, ConflictException, HttpException, Inject, Injectable, NotFoundException, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, HttpException, Inject, Injectable, NotFoundException, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { and, asc, eq, gt, gte, inArray, isNull, lt, lte, or, sql } from '@ayushman-v2/db/drizzle';
 import type { Database } from '@ayushman-v2/db';
 import {
@@ -8,7 +8,7 @@ import {
   practices, professionalProfiles, serviceLocations,
   serviceProfessionals, services, users,
 } from '@ayushman-v2/db/schema';
-import type { PublicAvailabilityQuery, PublicBookingHoldInput, PublicBookingInput, PublicDirectoryQuery } from '@ayushman-v2/contracts';
+import type { GuestPublicBookingInput, PublicAvailabilityQuery, PublicBookingHoldInput, PublicBookingInput, PublicDirectoryQuery } from '@ayushman-v2/contracts';
 import { DATABASE } from '../database.module.js';
 import { REDIS, type RedisStore } from '../redis.module.js';
 import { readEnvironment } from '../config.js';
@@ -98,7 +98,7 @@ export class BookingService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async loadPublicPractice(practiceId: string) {
-    const [practiceRows, branches, enabledProfessions, offeringRows] = await Promise.all([
+    const [practiceRows, branches, enabledProfessions, offeringRows, [bookingPolicy]] = await Promise.all([
       this.db.select({
       id: practices.id, name: practices.name, slug: practices.slug, description: practices.description,
       phone: practices.phone, website: practices.website, timezone: practices.timezone,
@@ -124,6 +124,7 @@ export class BookingService implements OnModuleInit, OnModuleDestroy {
         .innerJoin(practiceMemberships, and(eq(practiceMemberships.practiceId, practiceId), eq(practiceMemberships.userId, users.id), eq(practiceMemberships.status, 'active')))
         .innerJoin(practiceMembershipRoles, and(eq(practiceMembershipRoles.membershipId, practiceMemberships.id), eq(practiceMembershipRoles.role, 'professional')))
         .where(and(eq(services.practiceId, practiceId), eq(services.active, true), eq(services.onlineBookable, true), eq(locations.practiceId, practiceId))),
+      this.db.select({ guestBookingEnabled: bookingPolicies.guestBookingEnabled }).from(bookingPolicies).where(eq(bookingPolicies.practiceId, practiceId)).limit(1),
     ]);
     const [practice] = practiceRows;
     if (!practice) throw new NotFoundException('Practice not found');
@@ -146,7 +147,7 @@ export class BookingService implements OnModuleInit, OnModuleDestroy {
       });
     }
     return {
-      practice,
+      practice: { ...practice, guestBookingEnabled: bookingPolicy?.guestBookingEnabled ?? false },
       professions: enabledProfessions,
       locations: [...new Map(branches.map((branch) => [branch.id, branch])).values()],
       services: [...servicesById.values()].map((service) => ({ ...service, locations: [...service.locations.values()], professionals: [...service.professionals.values()] })),
@@ -156,7 +157,8 @@ export class BookingService implements OnModuleInit, OnModuleDestroy {
   async searchDirectory(query: PublicDirectoryQuery) {
     const term = query.q?.trim() ?? '';
     const search = `%${term}%`;
-    const cacheKey = `ayushman:v4:directory:${createHash('sha1').update(term.toLocaleLowerCase('en-US')).digest('hex')}`;
+    const directoryGeneration = await this.redis.get('ayushman:v4:directory:generation') ?? '0';
+    const cacheKey = `ayushman:v4:directory:${directoryGeneration}:${createHash('sha1').update(term.toLocaleLowerCase('en-US')).digest('hex')}`;
     const cached = await this.redis.get(cacheKey);
     if (cached) return JSON.parse(cached) as Array<{ id: string; name: string; slug: string; description: string | null; timezone: string; services: Array<{ id: string; name: string; durationMinutes: number; priceMinor: number | null; currency: string }> }>;
     const rows = await this.db.select({
@@ -164,6 +166,25 @@ export class BookingService implements OnModuleInit, OnModuleDestroy {
       description: practices.description, timezone: practices.timezone,
     }).from(practices).where(and(
       eq(practices.active, true), eq(practices.publicListingEnabled, true),
+      // A public listing should be a usable booking destination. Without this
+      // guard, newly registered or partially configured practices appeared in
+      // customer search with an empty "Bookable services" section. Keep this
+      // eligibility check aligned with the joins used to build the offerings
+      // below, so a visible result always has at least one bookable service.
+      sql`EXISTS (
+        SELECT 1
+        FROM services s
+        JOIN service_locations sl ON sl.service_id = s.id AND sl.active
+        JOIN locations l ON l.id = sl.location_id AND l.active AND l.practice_id = s.practice_id
+        JOIN location_professions lp ON lp.location_id = l.id AND lp.practice_profession_id = s.practice_profession_id AND lp.enabled
+        JOIN practice_professions pp ON pp.id = s.practice_profession_id AND pp.enabled
+        JOIN service_professionals sp ON sp.service_id = s.id AND sp.practice_id = s.practice_id AND sp.active
+        JOIN professional_profiles prof ON prof.user_id = sp.professional_user_id AND prof.practice_id = s.practice_id AND prof.practice_profession_id = s.practice_profession_id
+        JOIN practice_memberships pm ON pm.practice_id = s.practice_id AND pm.user_id = prof.user_id AND pm.status = 'active'
+        JOIN practice_membership_roles pmr ON pmr.membership_id = pm.id AND pmr.role = 'professional'
+        JOIN users u ON u.id = prof.user_id AND u.disabled_at IS NULL
+        WHERE s.practice_id = ${practices.id} AND s.active AND s.online_bookable
+      )`,
       term ? sql`(
         ${practices.name} ILIKE ${search} OR ${practices.slug} ILIKE ${search} OR
         EXISTS (SELECT 1 FROM practice_professions pp WHERE pp.practice_id = ${practices.id} AND pp.enabled AND pp.name ILIKE ${search}) OR
@@ -492,6 +513,70 @@ export class BookingService implements OnModuleInit, OnModuleDestroy {
       return response;
     } catch (error) {
       if (this.isUniqueViolation(error) || this.isExclusionViolation(error)) throw new ConflictException('That time was just booked. Please choose another slot');
+      throw error;
+    }
+  }
+
+  async createGuestPublicBooking(practiceId: string, key: string | undefined, input: GuestPublicBookingInput) {
+    if (!key || key.length < 8 || key.length > 128) throw new BadRequestException('A valid Idempotency-Key header is required');
+    const [practice] = await this.db.select({ id: practices.id, timezone: practices.timezone }).from(practices)
+      .where(and(eq(practices.id, practiceId), eq(practices.active, true), eq(practices.publicBookingEnabled, true))).limit(1);
+    if (!practice) throw new NotFoundException('Practice does not accept online bookings');
+    const [policy] = await this.db.select().from(bookingPolicies).where(eq(bookingPolicies.practiceId, practiceId)).limit(1);
+    if (!policy?.guestBookingEnabled) throw new ForbiddenException('This practice requires a customer account to book');
+    if (policy.requirePrepayment) throw new ConflictException('This practice requires online payment, but its payment provider is not configured');
+    const [service] = await this.db.select().from(services).where(and(eq(services.id, input.serviceId), eq(services.practiceId, practiceId), eq(services.active, true), eq(services.onlineBookable, true))).limit(1);
+    if (!service) throw new NotFoundException('Service is not bookable');
+    const email = input.email?.trim().toLocaleLowerCase('en-US') ?? null;
+    const phone = input.phone ?? null;
+    const bodyHash = createHash('sha256').update(JSON.stringify({ input: { ...input, email }, purpose: 'guest-booking' })).digest('hex');
+    const [prior] = await this.db.select().from(idempotencyKeys).where(and(eq(idempotencyKeys.practiceId, practiceId), eq(idempotencyKeys.key, key))).limit(1);
+    if (prior && prior.expiresAt > new Date()) {
+      if (prior.requestHash !== bodyHash) throw new ConflictException('Idempotency key was already used for a different request');
+      if (prior.response) return prior.response;
+      throw new ConflictException('This booking request is still processing; retry shortly with the same key');
+    }
+    if (prior) await this.db.delete(idempotencyKeys).where(eq(idempotencyKeys.id, prior.id));
+    const startsAt = new Date(input.startsAt);
+    const date = localDateFromInstant(startsAt, practice.timezone);
+    const availability = await this.availableSlots(practiceId, {
+      serviceId: service.id, locationId: input.locationId, professionalUserId: input.professionalUserId, from: date, to: date,
+    }, true);
+    if (!availability.slots.some((slot) => slot.startsAt === startsAt.toISOString() && slot.professional.id === input.professionalUserId)) {
+      throw new ConflictException('That time is no longer available. Your details are still here; choose another time.');
+    }
+    try {
+      const response = await this.db.transaction(async (tx) => {
+        await tx.insert(idempotencyKeys).values({ practiceId, key, requestHash: bodyHash, expiresAt: new Date(Date.now() + 24 * 60 * 60_000) }).onConflictDoNothing();
+        const [existing] = await tx.select().from(idempotencyKeys).where(and(eq(idempotencyKeys.practiceId, practiceId), eq(idempotencyKeys.key, key))).limit(1);
+        if (existing.requestHash !== bodyHash) throw new ConflictException('Idempotency key was already used for a different request');
+        if (existing.response) return existing.response as { appointment: { id: string; status: string; startsAt: Date } };
+        // Guest contact details create an unlinked practice record. They are never
+        // matched to an Ayushman user until that person verifies their identity.
+        const [client] = await tx.insert(clients).values({
+          practiceId, fullName: input.fullName, email, phone, userId: null, createdByUserId: null,
+        }).returning({ id: clients.id });
+        const endsAt = new Date(startsAt.getTime() + service.durationMinutes * 60_000);
+        const status = policy.confirmationMode === 'approval' ? 'pending' : 'confirmed';
+        const [appointment] = await tx.insert(appointments).values({
+          practiceId, practiceProfessionId: service.practiceProfessionId, locationId: input.locationId,
+          serviceId: service.id, professionalUserId: input.professionalUserId, clientId: client.id,
+          startsAt, endsAt, reservedStartsAt: new Date(startsAt.getTime() - service.bufferBeforeMinutes * 60_000),
+          reservedEndsAt: new Date(endsAt.getTime() + service.bufferAfterMinutes * 60_000), timezone: practice.timezone,
+          serviceNameSnapshot: service.name, durationMinutesSnapshot: service.durationMinutes,
+          bufferBeforeMinutesSnapshot: service.bufferBeforeMinutes, bufferAfterMinutesSnapshot: service.bufferAfterMinutes,
+          priceMinorSnapshot: service.priceMinor, currencySnapshot: service.currency, status, clientNote: input.note ?? null,
+        }).returning({ id: appointments.id, status: appointments.status, startsAt: appointments.startsAt, endsAt: appointments.endsAt });
+        await tx.insert(auditEvents).values({ practiceId, actorUserId: null, action: 'appointment.guest_booked', entityType: 'appointment', entityId: appointment.id, metadata: { serviceId: service.id, locationId: input.locationId, professionalUserId: input.professionalUserId } });
+        await tx.insert(appointmentNotifications).values({ practiceId, recipientUserId: input.professionalUserId, appointmentId: appointment.id, kind: 'new_booking' });
+        const result = { appointment };
+        await tx.update(idempotencyKeys).set({ response: result }).where(eq(idempotencyKeys.id, existing.id));
+        return result;
+      });
+      await this.bumpAvailabilityCache(practiceId);
+      return response;
+    } catch (error) {
+      if (this.isUniqueViolation(error) || this.isExclusionViolation(error)) throw new ConflictException('That time was just booked. Your details are still here; choose another time.');
       throw error;
     }
   }

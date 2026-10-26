@@ -6,6 +6,7 @@ import type { FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Leaf } from 'lucide-react';
 import { api } from '@/lib/api';
+import { LoginInput } from '@ayushman-v2/contracts';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,9 +16,12 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setBusy(true); setError('');
+    event.preventDefault(); setError('');
+    const parsed = LoginInput.safeParse({ email, password });
+    if (!parsed.success) { setError(parsed.error.issues[0]?.message ?? 'Check your email and password.'); return; }
+    setBusy(true);
     try {
-      await api('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+      await api('/auth/login', { method: 'POST', body: JSON.stringify(parsed.data) });
       router.replace('/dashboard');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Sign in failed.');

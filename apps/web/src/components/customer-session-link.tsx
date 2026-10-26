@@ -3,7 +3,7 @@
 import { SpaLink as Link } from '@/components/spa-link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowRight, CalendarDays, CircleUserRound, Compass, CreditCard, FileText, LogOut, Moon, Settings, Sun } from 'lucide-react';
+import { ArrowRight, CalendarDays, ChevronDown, CircleUserRound, Compass, CreditCard, FileText, LogOut, Moon, Settings, Sun } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useCustomerSession } from '@/lib/customer-session';
 import type { CustomerProfileSummary } from '@/lib/customer-session';
@@ -53,7 +53,7 @@ export function CustomerSessionLink({ variant = 'header', initialCustomer, onPro
   const customer = initialCustomer ?? session.customer;
   if (variant === 'header' && state === 'customer') return <>
     <div className="customer-profile-menu" ref={menuRef}>
-      <button type="button" className="customer-profile-trigger" aria-label="Open profile and account options" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}><span>{customer?.fullName.trim().charAt(0).toLocaleUpperCase() || <CircleUserRound size={20}/>}</span></button>
+      <button type="button" className="customer-profile-trigger" aria-label="Open profile and account options" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}><span>{customer?.fullName.trim().charAt(0).toLocaleUpperCase() || <CircleUserRound size={20}/>}</span><span className="customer-profile-trigger-name">{customer?.fullName || 'Your account'}</span><ChevronDown className="customer-profile-trigger-chevron" size={15}/></button>
       {menuOpen && <div className="customer-profile-popover" role="menu" aria-label="Profile and account options">
         <div className="customer-profile-popover-heading"><span className="customer-profile-avatar">{customer?.fullName.trim().charAt(0).toLocaleUpperCase() || <CircleUserRound size={18}/>}</span><div><strong>{customer?.fullName || 'Your account'}</strong><small>{customer?.email}</small></div></div>
         <Link role="menuitem" href="/customer/account?section=profile" onClick={(event) => { setMenuOpen(false); if (onProfileClick) { event.preventDefault(); onProfileClick(); } }}><CircleUserRound size={16}/> Profile</Link>

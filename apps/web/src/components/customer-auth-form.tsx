@@ -7,6 +7,7 @@ import type { FormEvent } from 'react';
 import { Leaf } from 'lucide-react';
 import { api } from '@/lib/api';
 import { PhoneField } from '@/components/ui/phone-field';
+import { CustomerRegistrationInput, LoginInput } from '@ayushman-v2/contracts';
 
 export function CustomerAuthForm({ mode }: { mode: 'login' | 'register' }) {
   const router = useRouter();
@@ -28,13 +29,15 @@ export function CustomerAuthForm({ mode }: { mode: 'login' | 'register' }) {
   };
 
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setBusy(true); setError('');
+    event.preventDefault(); setError('');
+    const schema = isRegister ? CustomerRegistrationInput : LoginInput;
+    const parsed = schema.safeParse(isRegister ? { fullName, email, ...(phone ? { phone } : {}), password } : { email, password });
+    if (!parsed.success) { setError(parsed.error.issues[0]?.message ?? 'Check the form fields and try again.'); return; }
+    setBusy(true);
     try {
       const result = await api<{ user: { fullName: string; email: string } }>(`/auth/customer/${mode}`, {
         method: 'POST',
-        body: JSON.stringify(isRegister
-          ? { fullName, email, ...(phone ? { phone } : {}), password }
-          : { email, password }),
+        body: JSON.stringify(parsed.data),
       });
       window.dispatchEvent(new CustomEvent('ayushman-customer-session-change', { detail: { fullName: result.user.fullName, email: result.user.email, phone: null } }));
       router.replace(returnTo());

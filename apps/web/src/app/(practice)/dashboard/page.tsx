@@ -14,9 +14,11 @@ type DashboardData = { appointments: Appointment[]; services: Service[]; staff: 
 const timeFmt = (timezone: string) => new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone: timezone });
 
 export default function DashboardPage() {
-  const { practice, branches, branchId, session, permissions } = usePractice();
+  const { practice, branches, branchId, session, permissions, permissionsReady } = usePractice();
   const timezone = branches.find((item) => item.id === branchId)?.timezone ?? practice.timezone;
   const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const [setupSkipped, setSetupSkipped] = useState(false);
+  useEffect(() => { setSetupSkipped(localStorage.getItem('ayushman.practice_setup_skipped') === '1'); }, []);
   const dashboardUrls = useMemo(() => {
     const from = new Date(selectedDate); from.setHours(0, 0, 0, 0); from.setDate(from.getDate() - 7);
     const to = new Date(selectedDate); to.setHours(23, 59, 59, 999); to.setDate(to.getDate() + 14);
@@ -32,13 +34,15 @@ export default function DashboardPage() {
     if (cached.appointments === null) setLoading(true);
     setError('');
     const [appointments, services, staff] = await Promise.allSettled([
-      api<Appointment[]>(dashboardUrls.appointments), api<Service[]>(dashboardUrls.services), api<StaffMember[]>(dashboardUrls.staff),
+      permissions['appointments.read'] ? api<Appointment[]>(dashboardUrls.appointments) : Promise.resolve([] as Appointment[]),
+      permissions['services.read'] ? api<Service[]>(dashboardUrls.services) : Promise.resolve([] as Service[]),
+      permissions['staff.read'] ? api<StaffMember[]>(dashboardUrls.staff) : Promise.resolve([] as StaffMember[]),
     ]);
     if (appointments.status === 'rejected') setError(appointments.reason instanceof Error ? appointments.reason.message : 'Could not load appointments.');
     const nextData = { appointments: appointments.status === 'fulfilled' ? appointments.value : cached.appointments ?? [], services: services.status === 'fulfilled' ? services.value : cached.services ?? [], staff: staff.status === 'fulfilled' ? staff.value : cached.staff ?? [] };
     setData(nextData); setLoading(false);
-  }, [dashboardUrls]);
-  useEffect(() => { void load(); }, [load]);
+  }, [dashboardUrls, permissions]);
+  useEffect(() => { if (permissionsReady) void load(); }, [load, permissionsReady]);
   const firstName = session.user.fullName.split(' ')[0];
   const now = new Date();
   const localHour = Number(new Intl.DateTimeFormat('en-US', { hour: 'numeric', hourCycle: 'h23', timeZone: timezone }).format(now));
@@ -47,7 +51,7 @@ export default function DashboardPage() {
   const appointments = useMemo(() => data.appointments.slice().sort((a, b) => a.startsAt.localeCompare(b.startsAt)), [data.appointments]);
   const complete = appointments.filter((item) => item.status === 'completed').length;
   const pastAppointments = appointments.filter((item) => new Date(item.startsAt) < now).reverse();
-  const upcomingAppointments = appointments.filter((item) => new Date(item.startsAt) >= now && !['completed', 'cancelled', 'no_show'].includes(item.status));
+  const upcomingAppointments = appointments.filter((item) => new Date(item.startsAt) >= now && !['completed', 'interrupted', 'cancelled', 'no_show'].includes(item.status));
   const appointmentsByDate = (items: Appointment[]) => {
     const grouped = new Map<string, Appointment[]>();
     for (const appointment of items) {
@@ -65,7 +69,8 @@ export default function DashboardPage() {
     { label: 'Locations', value: branches.filter((item) => item.active).length, note: 'Practice locations', icon: MapPin, tone: 'lavender', href: '/branches' },
   ];
   const quickActions = [
-    { href: '/appointments', label: 'Appointments', icon: CalendarDays, permission: 'appointments.create' },
+    ...(setupSkipped ? [{ href: '/setup', label: 'Finish practice setup', icon: BriefcaseBusiness, permission: 'practice.update' }] : []),
+    { href: '/appointments?newVisit=1', label: 'New visit', icon: CalendarDays, permission: 'appointments.create' },
     { href: '/clients', label: 'Customers', icon: Users, permission: 'clients.read' },
     { href: '/billing', label: 'Create invoice', icon: FileText, permission: 'billing.manage' },
     { href: '/services', label: 'Services', icon: BriefcaseBusiness, permission: 'services.manage' },
@@ -74,9 +79,9 @@ export default function DashboardPage() {
   const setDay = (delta: number) => setSelectedDate((current) => { const next = new Date(current); next.setDate(next.getDate() + delta); return next; });
 
   return <>
-    <div className="dashboard-welcome"><div><p className="eyebrow">{practice.name.toUpperCase()}</p><h1>{greeting}, {firstName}. <span>{greetingIcon}</span></h1><p>Here’s what’s happening at your practice today.</p></div><div className="dashboard-date-control"><button className="icon-button" aria-label="Previous day" onClick={() => setDay(-1)}><ArrowLeft size={16}/></button><strong>{new Intl.DateTimeFormat(undefined, { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric', timeZone: timezone }).format(selectedDate)}</strong><button className="icon-button" aria-label="Next day" onClick={() => setDay(1)}><ArrowRight size={16}/></button><button className="button button-secondary" onClick={() => setSelectedDate(new Date())}>Today</button>{permissions['appointments.create'] && <Link className="button button-primary" href="/appointments"><Plus size={15}/> New appointment</Link>}</div></div>
+    <div className="dashboard-welcome"><div><p className="eyebrow">{practice.name.toUpperCase()}</p><h1>{greeting}, {firstName}. <span>{greetingIcon}</span></h1><p>Here’s what’s happening at your practice today.</p></div><div className="dashboard-date-control"><button className="icon-button" aria-label="Previous day" onClick={() => setDay(-1)}><ArrowLeft size={16}/></button><strong>{new Intl.DateTimeFormat(undefined, { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric', timeZone: timezone }).format(selectedDate)}</strong><button className="icon-button" aria-label="Next day" onClick={() => setDay(1)}><ArrowRight size={16}/></button><button className="button button-secondary" onClick={() => setSelectedDate(new Date())}>Today</button>{permissions['appointments.create'] && <Link className="button button-primary" href="/appointments?newVisit=1"><Plus size={15}/> New visit</Link>}</div></div>
     <section className="stat-grid dashboard-stat-grid" aria-label="Practice summary">{stats.map(({ label, value, note, icon: Icon, tone, href }) => <Link className="stat-card" href={href} key={label}><span className={`stat-icon tone-${tone}`}><Icon size={19}/></span><div className="stat-main"><span className="stat-label">{label}</span><strong>{value}</strong><small>{note}</small></div><ArrowRight className="stat-arrow" size={16}/></Link>)}</section>
-    <SetupAssistant practice={practice} branchId={branchId} branches={branches} services={data.services} staff={data.staff} session={session}/>
+    <SetupAssistant practice={practice} branchId={branchId} branches={branches} services={data.services} staff={data.staff}/>
     <div className="dashboard-grid dashboard-reference-grid">
       <section className="section-card schedule-card dashboard-schedule"><div className="section-heading"><div><p className="eyebrow">PAST & UPCOMING</p><h2>Schedule overview</h2><small className="dashboard-range-note">Past 7 days and next 14 days · {timezone}</small></div><div className="inline-actions"><span className="count-pill">{appointments.length} appointments</span><Link className="text-link" href="/calendar">Open calendar <ArrowRight size={14}/></Link></div></div>
         {loading ? <LoadingState/> : error ? <ErrorState message={error}/> : appointments.length === 0 ? <EmptyState title="No recent or upcoming appointments" description="Appointments from the past week and the next two weeks will appear here, grouped by date." icon={CalendarDays}/> : <div className="dashboard-appointment-groups">

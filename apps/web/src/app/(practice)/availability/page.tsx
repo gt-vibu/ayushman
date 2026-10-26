@@ -10,6 +10,7 @@ import { usePractice } from '@/lib/practice-context';
 import { useApiData } from '@/lib/use-api-data';
 import { ErrorState, LoadingState, PageHeader } from '@/components/app-shell';
 import { DatePicker } from '@/components/ui/date-picker';
+import { ProfessionalScheduleInput } from '@ayushman-v2/contracts';
 
 type Profession = { id: string; name: string };
 type AvailabilityRule = { id: string; scope: string; practiceProfessionId: string | null; locationId: string | null; professionalUserId: string | null; weekday: number; startMinute: number; endMinute: number; slotIntervalMinutes: number };
@@ -25,6 +26,7 @@ export default function AvailabilityPage() {
   const rulesUrl = practicePath(practice.id, `/availability/rules${branchId ? `?locationId=${encodeURIComponent(branchId)}` : ''}`);
   const { data: professions, loading: loadingProfessions, error: professionError } = useApiData<Profession[]>(professionsUrl);
   const { data: rules, loading: loadingRules, error: rulesError } = useApiData<AvailabilityRule[]>(rulesUrl);
+  const professionPreferenceKey = `availability-profession:${practice.id}:${session.user.id}`;
   const [professionId, setProfessionId] = useState('');
   const [days, setDays] = useState<DayRule[]>(weekdays.map((_, weekday) => ({ weekday, enabled: weekday >= 1 && weekday <= 5, start: '09:00', end: '17:00', interval: 30 })));
   const [busy, setBusy] = useState(false);
@@ -32,7 +34,19 @@ export default function AvailabilityPage() {
   const [error, setError] = useState('');
   const activeBranchId = branchId || branches[0]?.id || '';
 
-  useEffect(() => { if (!professionId && professions?.length) setProfessionId(professions[0].id); }, [professionId, professions]);
+  useEffect(() => {
+    if (!professions?.length) return;
+    setProfessionId((current) => {
+      if (current && professions.some((profession) => profession.id === current)) return current;
+      let preferred = '';
+      try { preferred = window.localStorage.getItem(professionPreferenceKey) ?? ''; } catch { /* Storage may be unavailable; fall back to the first profession. */ }
+      return professions.some((profession) => profession.id === preferred) ? preferred : professions[0].id;
+    });
+  }, [professions, professionPreferenceKey]);
+  useEffect(() => {
+    if (!professionId || !professions?.some((profession) => profession.id === professionId)) return;
+    try { window.localStorage.setItem(professionPreferenceKey, professionId); } catch { /* The saved schedule remains on the server if storage is unavailable. */ }
+  }, [professionId, professions, professionPreferenceKey]);
   useEffect(() => {
     if (!rules || !professionId) return;
     const own = rules.filter((rule) => rule.scope === 'professional_location' && rule.professionalUserId === session.user.id && rule.practiceProfessionId === professionId && rule.locationId === activeBranchId);
@@ -58,15 +72,23 @@ export default function AvailabilityPage() {
     setError('');
   }
   async function save() {
+    if (!days.some((day) => day.enabled)) {
+      setError('Select at least one available day before saving.');
+      setMessage('');
+      return;
+    }
+    const payload = {
+      practiceProfessionId: professionId,
+      locationId: activeBranchId,
+      rules: days.filter((day) => day.enabled).map((day) => ({ weekday: day.weekday, startMinute: minuteOf(day.start), endMinute: minuteOf(day.end), slotIntervalMinutes: day.interval })),
+    };
+    const parsed = ProfessionalScheduleInput.safeParse(payload);
+    if (!parsed.success) { setError(parsed.error.issues[0]?.message ?? 'Check your availability times.'); setMessage(''); return; }
     setBusy(true); setMessage(''); setError('');
     try {
       await api(practicePath(practice.id, '/availability/professional-schedule'), {
         method: 'PUT',
-        body: JSON.stringify({
-          practiceProfessionId: professionId,
-          locationId: activeBranchId,
-          rules: days.filter((day) => day.enabled).map((day) => ({ weekday: day.weekday, startMinute: minuteOf(day.start), endMinute: minuteOf(day.end), slotIntervalMinutes: day.interval })),
-        }),
+        body: JSON.stringify(parsed.data),
       });
       setMessage('Your availability is saved. Customers can now see eligible start times.');
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save availability.'); }
@@ -117,11 +139,11 @@ function TimeOffManager({ practiceId, branchId, professionId, userId, timezone }
 
 type BulkConflict = { id: string; clientName: string; serviceName: string; startsAt: string };
 type BulkSlot = { startsAt: string; endsAt: string; professional: { id: string; name: string } };
-type BulkOption = { appointmentId: string; clientName: string; serviceName: string; originalStartsAt: string; timezone: string; slots: BulkSlot[] };
+type BulkOption = { appointmentId: string; currentProfessionalUserId: string; clientName: string; serviceName: string; originalStartsAt: string; timezone: string; slots: BulkSlot[] };
 function BulkMoveBookings({ practiceId, conflicts, timezone, onComplete }: { practiceId: string; conflicts: BulkConflict[]; timezone: string; onComplete: (count: number) => void }) {
   const today = localDateAt(timezone);
-  const [open, setOpen] = useState(false); const [date, setDate] = useState(''); const [options, setOptions] = useState<BulkOption[]>([]); const [selected, setSelected] = useState<Record<string, string>>({}); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [success, setSuccess] = useState('');
-  async function load() { setBusy(true); setError(''); setSuccess(''); setOptions([]); setSelected({}); try { const result = await api<{ appointments: BulkOption[] }>(practicePath(practiceId, '/appointments/bulk-reschedule-options'), { method: 'POST', body: JSON.stringify({ appointmentIds: conflicts.map((item) => item.id), date }) }); setOptions(result.appointments); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not find replacement times.'); } finally { setBusy(false); } }
-  async function confirm() { if (!options.length || options.some((item) => !selected[item.appointmentId])) return; setBusy(true); setError(''); try { const result = await api<{ moved: number }>(practicePath(practiceId, '/appointments/bulk-reschedule'), { method: 'POST', body: JSON.stringify({ moves: options.map((item) => ({ appointmentId: item.appointmentId, startsAt: selected[item.appointmentId] })) }) }); setSuccess(`${result.moved} appointment${result.moved === 1 ? '' : 's'} moved.`); setOpen(false); setOptions([]); onComplete(result.moved); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not move these appointments. Review the times and try again.'); } finally { setBusy(false); } }
-  return <div className="bulk-move-panel"><button className="button button-secondary" type="button" onClick={() => setOpen((value) => !value)}>{open ? 'Hide move planner' : `Reschedule ${conflicts.length} affected booking${conflicts.length === 1 ? '' : 's'}`}</button>{success && <p className="save-success"><Check size={14}/>{success}</p>}{open && <div className="bulk-move-form"><p className="field-hint">Choose a destination date. Each booking keeps its original customer, service, branch, and professional. All moves are checked and saved together.</p><label>Move bookings to date<DatePicker min={today} value={date} onChange={(value) => { setDate(value); setOptions([]); setSelected({}); }} ariaLabel="Choose destination date for bookings"/></label><button type="button" className="button button-secondary" disabled={!date || busy} onClick={() => void load()}>{busy ? 'Finding times…' : 'Find available times'}</button>{options.map((item) => <label className="bulk-move-option" key={item.appointmentId}><span><b>{item.clientName}</b><small>{item.serviceName} · originally {new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short', timeZone: item.timezone }).format(new Date(item.originalStartsAt))}</small></span><DropdownSelect value={selected[item.appointmentId] ?? ''} onChange={(event) => setSelected((current) => ({ ...current, [item.appointmentId]: event.target.value }))}><option value="">{item.slots.length ? 'Choose a new time' : 'No available times'}</option>{item.slots.map((slot) => <option key={slot.startsAt} value={slot.startsAt}>{new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: item.timezone }).format(new Date(slot.startsAt))}</option>)}</DropdownSelect></label>)}{options.length > 0 && <button type="button" className="button button-primary" disabled={busy || options.some((item) => !selected[item.appointmentId])} onClick={() => void confirm()}>{busy ? 'Moving bookings…' : `Confirm all ${options.length} moves`}</button>}{error && <p role="alert" className="form-error">{error}</p>}</div>}</div>;
+  const [open, setOpen] = useState(false); const [date, setDate] = useState(''); const [reason, setReason] = useState('Practitioner unavailable'); const [allowPractitionerChange, setAllowPractitionerChange] = useState(false); const [options, setOptions] = useState<BulkOption[]>([]); const [selected, setSelected] = useState<Record<string, string>>({}); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [success, setSuccess] = useState('');
+  async function load() { setBusy(true); setError(''); setSuccess(''); setOptions([]); setSelected({}); try { const result = await api<{ appointments: BulkOption[] }>(practicePath(practiceId, '/appointments/bulk-reschedule-options'), { method: 'POST', body: JSON.stringify({ appointmentIds: conflicts.map((item) => item.id), date, allowPractitionerChange }) }); setOptions(result.appointments); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not find replacement times.'); } finally { setBusy(false); } }
+  async function confirm() { if (!options.length || options.some((item) => !selected[item.appointmentId])) return; setBusy(true); setError(''); try { const result = await api<{ moved: number }>(practicePath(practiceId, '/appointments/bulk-reschedule'), { method: 'POST', body: JSON.stringify({ reason: reason.trim(), moves: options.map((item) => { const [professionalUserId, startsAt] = selected[item.appointmentId]!.split('|'); return { appointmentId: item.appointmentId, startsAt, professionalUserId }; }) }) }); setSuccess(`${result.moved} appointment${result.moved === 1 ? '' : 's'} resolved.`); setOpen(false); setOptions([]); onComplete(result.moved); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not move these appointments. Review the times and try again.'); } finally { setBusy(false); } }
+  return <div className="bulk-move-panel"><button className="button button-secondary" type="button" onClick={() => setOpen((value) => !value)}>{open ? 'Hide move planner' : `Reschedule ${conflicts.length} affected booking${conflicts.length === 1 ? '' : 's'}`}</button>{success && <p className="save-success"><Check size={14}/>{success}</p>}{open && <div className="bulk-move-form"><p className="field-hint">Choose a destination date. You can keep each current practitioner or assign an eligible colleague. All bookings retain the same customer, service, branch, and history; all moves are checked and saved together.</p><label>Move bookings to date<DatePicker min={today} value={date} onChange={(value) => { setDate(value); setOptions([]); setSelected({}); }} ariaLabel="Choose destination date for bookings"/></label><label>Reason<input required minLength={5} maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)}/></label><label className="settings-toggle-field"><input type="checkbox" checked={allowPractitionerChange} onChange={(event) => { setAllowPractitionerChange(event.target.checked); setOptions([]); setSelected({}); }}/> Allow assignment to another eligible practitioner</label><button type="button" className="button button-secondary" disabled={!date || busy || reason.trim().length < 5} onClick={() => void load()}>{busy ? 'Finding times…' : 'Find available times'}</button>{options.map((item) => <label className="bulk-move-option" key={item.appointmentId}><span><b>{item.clientName}</b><small>{item.serviceName} · originally {new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short', timeZone: item.timezone }).format(new Date(item.originalStartsAt))}</small></span><DropdownSelect value={selected[item.appointmentId] ?? ''} onChange={(event) => setSelected((current) => ({ ...current, [item.appointmentId]: event.target.value }))}><option value="">{item.slots.length ? 'Choose practitioner and time' : 'No available times'}</option>{item.slots.map((slot) => <option key={`${slot.professional.id}|${slot.startsAt}`} value={`${slot.professional.id}|${slot.startsAt}`}>{slot.professional.name} · {new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: item.timezone }).format(new Date(slot.startsAt))}</option>)}</DropdownSelect></label>)}{options.length > 0 && <button type="button" className="button button-primary" disabled={busy || reason.trim().length < 5 || options.some((item) => !selected[item.appointmentId])} onClick={() => void confirm()}>{busy ? 'Moving bookings…' : `Confirm all ${options.length} moves`}</button>}{error && <p role="alert" className="form-error">{error}</p>}</div>}</div>;
 }

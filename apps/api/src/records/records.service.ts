@@ -22,11 +22,12 @@ export class RecordsService {
 
   constructor(@Inject(DATABASE) private readonly db: Database, private readonly authorization: AuthorizationService, private readonly storage: PrivateObjectStorage) {}
 
-  async list(userId: string, practiceId: string, clientId?: string) {
-    const permission = await this.authorization.resolvePermission({ userId, practiceId, permissionCode: 'records.read', ownRecordsAreQueryScoped: true });
+  async list(userId: string, practiceId: string, clientId?: string, locationId?: string) {
+    const permission = await this.authorization.resolvePermission({ userId, practiceId, permissionCode: 'records.read', locationId, ownRecordsAreQueryScoped: true });
     if (!permission.allowed) throw new ForbiddenException('Missing permission: records.read');
     const filters = [eq(clientDocuments.practiceId, practiceId), isNull(clientDocuments.deletedAt)];
     if (clientId) filters.push(eq(clientDocuments.clientId, clientId));
+    if (locationId) filters.push(eq(clientDocuments.locationId, locationId));
     if (permission.ownScoped) filters.push(sql`exists (
       select 1 from appointments a where a.practice_id = ${practiceId}::uuid
       and a.client_id = ${clientDocuments.clientId} and a.professional_user_id = ${userId}::uuid

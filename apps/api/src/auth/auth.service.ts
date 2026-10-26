@@ -38,7 +38,7 @@ export class AuthService {
     const slugBase = input.practice.name.toLocaleLowerCase('en-US').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 55) || 'practice';
 
     const result = await this.db.transaction(async (tx) => {
-      const [user] = await tx.insert(users).values({ email, fullName: input.fullName, passwordHash }).returning({ id: users.id, email: users.email, fullName: users.fullName });
+      const [user] = await tx.insert(users).values({ email, fullName: input.fullName, phone: input.phone ?? null, passwordHash }).returning({ id: users.id, email: users.email, fullName: users.fullName });
       const [practice] = await tx.insert(practices).values({
         name: input.practice.name,
         slug: `${slugBase}-${randomBytes(4).toString('hex')}`,

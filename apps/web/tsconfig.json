@@ -34,11 +34,12 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
+    "..\\..\\..\\..\\..\\..\\..\\..\\ayushman-next-cache/types/**/*.ts",
     ".next-dev/types/**/*.ts",
     ".next-prod/types/**/*.ts",
     ".next/types/**/*.ts",
     "next-env.d.ts",
-    "..\\..\\..\\..\\..\\..\\..\\..\\ayushman-next-cache/types/**/*.ts"
+    ".next-codex-local/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

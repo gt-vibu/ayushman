@@ -14,9 +14,9 @@ services:
       - key: NODE_ENV
         value: production
       - key: WEB_ORIGIN
-        sync: false
+        value: https://ayushman-yi5h.vercel.app
       - key: ADMIN_WEB_ORIGIN
-        sync: false
+        value: https://ayushman-yi5h.vercel.app
       - key: DATABASE_URL
         sync: false
       - key: DATABASE_URL_UNPOOLED

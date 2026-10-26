@@ -146,7 +146,13 @@ export class SessionRecordingsService implements OnModuleInit, OnModuleDestroy {
   constructor(@Inject(DATABASE) private readonly db: Database, private readonly authorization: AuthorizationService, private readonly storage: PrivateObjectStorage) {}
 
   onModuleInit() {
-    this.cleanupTimer = setInterval(() => void this.expireOldRecordings(), 6 * 60 * 60 * 1000);
+    // A browser can disappear after uploading one or more segments but before
+    // calling complete(). Do not leave that recording occupying the appointment
+    // indefinitely; retain its uploaded segments for investigation, but make
+    // the appointment available for a fresh consent request after an hour. The
+    // unfinalized segments remain private for one day, then normal retention
+    // cleanup removes them.
+    this.cleanupTimer = setInterval(() => void this.expireOldRecordings(), 15 * 60 * 1000);
     this.cleanupTimer.unref();
     void this.expireOldRecordings();
   }
@@ -417,8 +423,16 @@ export class SessionRecordingsService implements OnModuleInit, OnModuleDestroy {
 
   private async expireOldRecordings() {
     try {
+      const now = new Date();
+      const partialAudioExpiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      await this.db.update(sessionRecordings).set({ status: 'failed', endedAt: now, retentionExpiresAt: partialAudioExpiresAt, updatedAt: now })
+        .where(and(
+          sql`${sessionRecordings.status} IN ('recording','uploading','stop_requested')`,
+          sql`${sessionRecordings.updatedAt} < now() - interval '1 hour'`,
+          isNull(sessionRecordings.deletedAt),
+        ));
       const expired = await this.db.update(sessionRecordings).set({ status: 'expired', sharingStatus: 'expired', deletedAt: new Date(), updatedAt: new Date() })
-        .where(and(lte(sessionRecordings.retentionExpiresAt, new Date()), isNull(sessionRecordings.deletedAt), sql`${sessionRecordings.status} IN ('ready_for_review','shared')`)).returning({ storageKey: sessionRecordings.storageKey, id: sessionRecordings.id });
+        .where(and(lte(sessionRecordings.retentionExpiresAt, new Date()), isNull(sessionRecordings.deletedAt), sql`${sessionRecordings.status} IN ('ready_for_review','shared','failed')`)).returning({ storageKey: sessionRecordings.storageKey, id: sessionRecordings.id });
       for (const row of expired) {
         await this.storage.remove(row.storageKey, join(this.directory, row.storageKey)).catch((error) => this.logger.warn(`Could not remove expired recording ${row.id}: ${error instanceof Error ? error.message : 'unknown error'}`));
         const chunks = await this.db.select({ storageKey: sessionRecordingChunks.storageKey }).from(sessionRecordingChunks).where(eq(sessionRecordingChunks.recordingId, row.id));

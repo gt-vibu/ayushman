@@ -1,18 +1,19 @@
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, eq, isNull, or, sql } from '@ayushman-v2/db/drizzle';
+import { and, count, eq, gt, inArray, isNull, or, sql } from '@ayushman-v2/db/drizzle';
 import type { Database } from '@ayushman-v2/db';
 import {
   locations, locationProfessions, practiceMembershipLocations, practiceMembershipRoles,
   membershipPermissionOverrides, permissionCatalog, practiceMemberships, practiceRolePermissionSettings, practiceProfessions, practices, professionalLocations, rolePermissionGrants,
-  professionalProfiles, serviceLocations, serviceProfessionals, services, users,
+  appointments, auditEvents, professionalProfiles, serviceLocations, serviceProfessionals, services, users,
 } from '@ayushman-v2/db/schema';
 import type {
-  LocationInput, LocationProfessionInput, PracticeProfessionInput, PracticeUpdateInput,
+  CreatePracticeProfessionInput, LocationInput, LocationProfessionInput, PracticeProfessionInput, PracticeUpdateInput,
   LocationUpdateInput, MembershipPermissionOverridesInput, MembershipStatusInput, PracticeRolePermissionSettingsInput, PracticeProfessionUpdateInput,
   ProfessionalProfileInput, ServiceInput,
   StaffAssignmentInput, StaffLocationsInput, StaffRolesInput,
 } from '@ayushman-v2/contracts';
 import { DATABASE } from '../database.module.js';
+import { REDIS, type RedisStore } from '../redis.module.js';
 import { AuthorizationService } from '../auth/authorization.service.js';
 import { isUniqueViolation } from './practice-setup.helpers.js';
 import { getEffectivePermissions } from './effective-permissions.js';
@@ -22,6 +23,7 @@ import { listPracticeServices } from './list-practice-services.js';
 export class PracticeSetupService {
   constructor(
     @Inject(DATABASE) private readonly db: Database,
+    @Inject(REDIS) private readonly redis: RedisStore,
     private readonly authorization: AuthorizationService,
   ) {}
 
@@ -65,12 +67,43 @@ export class PracticeSetupService {
     }
   }
 
+  async quickAddProfession(userId: string, practiceId: string, input: CreatePracticeProfessionInput) {
+    const check = { userId, practiceId, permissionCode: 'practice.update' } as const;
+    if (!(await this.authorization.hasPermission(check))) await this.authorization.assertPermission({ userId, practiceId, permissionCode: 'services.manage' });
+    const locationIds = [...new Set(input.locationIds)];
+    if (locationIds.length !== input.locationIds.length) throw new BadRequestException('A branch was selected more than once');
+    return this.db.transaction(async (tx) => {
+      const validLocations = locationIds.length
+        ? await tx.select({ id: locations.id }).from(locations).where(and(eq(locations.practiceId, practiceId), eq(locations.active, true), inArray(locations.id, locationIds)))
+        : [];
+      if (validLocations.length !== locationIds.length) throw new BadRequestException('One or more selected branches are inactive or do not belong to this practice');
+      const [inserted] = await tx.insert(practiceProfessions).values({
+        practiceId, professionCode: input.professionCode, name: input.name, termOverrides: input.termOverrides,
+      }).onConflictDoNothing({ target: [practiceProfessions.practiceId, practiceProfessions.professionCode] }).returning();
+      const [profession] = inserted ? [inserted] : await tx.select().from(practiceProfessions).where(and(
+        eq(practiceProfessions.practiceId, practiceId), eq(practiceProfessions.professionCode, input.professionCode), eq(practiceProfessions.enabled, true),
+      )).limit(1);
+      if (!profession) throw new ConflictException('This profession code belongs to a disabled profession. Re-enable it or choose another name.');
+      if (locationIds.length) await tx.insert(locationProfessions).values(locationIds.map((locationId) => ({ practiceId, locationId, practiceProfessionId: profession.id, enabled: true })))
+        .onConflictDoUpdate({ target: [locationProfessions.practiceProfessionId, locationProfessions.locationId], set: { enabled: true } });
+      await tx.insert(auditEvents).values({ practiceId, actorUserId: userId, action: inserted ? 'profession.quick_added' : 'profession.locations_enabled', entityType: 'practice_profession', entityId: profession.id, metadata: { locationIds: locationIds.join(','), locationCount: locationIds.length } });
+      return { ...profession, locationIds, alreadyExisted: !inserted };
+    });
+  }
+
   async updateProfession(userId: string, practiceId: string, professionId: string, input: PracticeProfessionUpdateInput) {
     await this.authorization.assertPermission({ userId, practiceId, permissionCode: 'practice.update' });
-    const [profession] = await this.db.update(practiceProfessions).set(input)
-      .where(and(eq(practiceProfessions.id, professionId), eq(practiceProfessions.practiceId, practiceId))).returning();
-    if (!profession) throw new NotFoundException('Profession not found in this practice');
-    return profession;
+    return this.db.transaction(async (tx) => {
+      const [profession] = await tx.update(practiceProfessions).set(input)
+        .where(and(eq(practiceProfessions.id, professionId), eq(practiceProfessions.practiceId, practiceId))).returning();
+      if (!profession) throw new NotFoundException('Profession not found in this practice');
+      if (input.enabled === false) {
+        const [{ total }] = await tx.select({ total: count() }).from(appointments).where(and(eq(appointments.practiceId, practiceId), eq(appointments.practiceProfessionId, professionId), inArray(appointments.status, ['pending', 'confirmed']), gt(appointments.startsAt, new Date())));
+        await tx.insert(auditEvents).values({ practiceId, actorUserId: userId, action: 'profession.disabled', entityType: 'practice_profession', entityId: professionId, metadata: { upcomingAppointmentsPreserved: total } });
+        return { ...profession, impact: { upcomingAppointmentsPreserved: total } };
+      }
+      return profession;
+    });
   }
 
   async listLocations(userId: string, practiceId: string, locationId?: string) {
@@ -106,10 +139,17 @@ export class PracticeSetupService {
 
   async updateLocation(userId: string, practiceId: string, locationId: string, input: LocationUpdateInput) {
     await this.authorization.assertPermission({ userId, practiceId, permissionCode: 'locations.manage', locationId });
-    const [location] = await this.db.update(locations).set({ ...input, updatedAt: new Date() })
-      .where(and(eq(locations.practiceId, practiceId), eq(locations.id, locationId))).returning();
-    if (!location) throw new NotFoundException('Branch not found in this practice');
-    return location;
+    const [{ total }] = await this.db.select({ total: count() }).from(appointments).where(and(eq(appointments.practiceId, practiceId), eq(appointments.locationId, locationId), inArray(appointments.status, ['pending', 'confirmed']), gt(appointments.startsAt, new Date())));
+    return this.db.transaction(async (tx) => {
+      const [location] = await tx.update(locations).set({ ...input, updatedAt: new Date() })
+        .where(and(eq(locations.practiceId, practiceId), eq(locations.id, locationId))).returning();
+      if (!location) throw new NotFoundException('Branch not found in this practice');
+      if (input.active === false) {
+        await tx.insert(auditEvents).values({ practiceId, actorUserId: userId, action: 'location.disabled', entityType: 'location', entityId: locationId, metadata: { upcomingAppointmentsPreserved: total } });
+        return { ...location, impact: { upcomingAppointmentsPreserved: total } };
+      }
+      return location;
+    });
   }
 
   async enableProfessionAtLocation(userId: string, practiceId: string, locationId: string, input: LocationProfessionInput) {
@@ -119,6 +159,14 @@ export class PracticeSetupService {
     }
     await this.assertLocation(practiceId, locationId);
     await this.assertProfession(practiceId, input.practiceProfessionId);
+    if (!input.enabled) {
+      const [{ total }] = await this.db.select({ total: count() }).from(appointments).where(and(
+        eq(appointments.practiceId, practiceId), eq(appointments.locationId, locationId),
+        eq(appointments.practiceProfessionId, input.practiceProfessionId),
+        inArray(appointments.status, ['pending', 'confirmed']), gt(appointments.startsAt, new Date()),
+      ));
+      if (total) throw new ConflictException(`This branch has ${total} upcoming appointment${total === 1 ? '' : 's'} for this profession. Move or cancel them before disabling it here.`);
+    }
     const [row] = await this.db.insert(locationProfessions).values({
       practiceId, locationId, practiceProfessionId: input.practiceProfessionId, enabled: input.enabled,
     }).onConflictDoUpdate({
@@ -218,6 +266,13 @@ export class PracticeSetupService {
     const currentRoles = await this.db.select({ role: practiceMembershipRoles.role }).from(practiceMembershipRoles)
       .where(eq(practiceMembershipRoles.membershipId, target.id));
     if (currentRoles.some((row) => row.role === 'owner')) throw new ForbiddenException('Owner access cannot be changed through staff role management');
+    if (currentRoles.some((row) => row.role === 'professional') && !input.roles.includes('professional')) {
+      const [{ total }] = await this.db.select({ total: count() }).from(appointments).where(and(
+        eq(appointments.practiceId, practiceId), eq(appointments.professionalUserId, targetUserId),
+        inArray(appointments.status, ['pending', 'confirmed']), gt(appointments.startsAt, new Date()),
+      ));
+      if (total) throw new ConflictException(`This practitioner has ${total} upcoming appointment${total === 1 ? '' : 's'}. Move or cancel them before removing practitioner access.`);
+    }
     const alreadyAdministrator = currentRoles.some((row) => row.role === 'admin');
     if (input.roles.includes('admin') && !await this.isOwner(actorId, practiceId) && !(alreadyAdministrator && actorId === targetUserId)) {
       throw new ForbiddenException('Only a practice owner can grant administrator access');
@@ -235,6 +290,17 @@ export class PracticeSetupService {
       .where(and(eq(practiceMemberships.practiceId, practiceId), eq(practiceMemberships.userId, targetUserId))).limit(1);
     if (!target) throw new NotFoundException('Staff member not found in this practice');
     const locationIds = await this.assertLocations(practiceId, input.locationIds);
+    const currentLocations = await this.db.select({ locationId: practiceMembershipLocations.locationId }).from(practiceMembershipLocations)
+      .where(eq(practiceMembershipLocations.membershipId, target.id));
+    const removedLocations = currentLocations.map((row) => row.locationId).filter((id) => !locationIds.includes(id));
+    if (removedLocations.length) {
+      const [{ total }] = await this.db.select({ total: count() }).from(appointments).where(and(
+        eq(appointments.practiceId, practiceId), eq(appointments.professionalUserId, targetUserId),
+        inArray(appointments.locationId, removedLocations), inArray(appointments.status, ['pending', 'confirmed']),
+        gt(appointments.startsAt, new Date()),
+      ));
+      if (total) throw new ConflictException(`This staff member has ${total} upcoming appointment${total === 1 ? '' : 's'} at a branch being removed. Move or cancel them before changing branch access.`);
+    }
     await this.db.transaction(async (tx) => {
       await tx.delete(practiceMembershipLocations).where(eq(practiceMembershipLocations.membershipId, target.id));
       if (locationIds.length) await tx.insert(practiceMembershipLocations).values(locationIds.map((locationId) => ({ practiceId, membershipId: target.id, locationId })));
@@ -250,6 +316,13 @@ export class PracticeSetupService {
     const roles = await this.db.select({ role: practiceMembershipRoles.role }).from(practiceMembershipRoles)
       .where(eq(practiceMembershipRoles.membershipId, target.id));
     if (roles.some((row) => row.role === 'owner')) throw new ForbiddenException('The practice owner cannot be suspended through staff management');
+    if (input.status === 'suspended') {
+      const [{ total }] = await this.db.select({ total: count() }).from(appointments).where(and(
+        eq(appointments.practiceId, practiceId), eq(appointments.professionalUserId, targetUserId),
+        inArray(appointments.status, ['pending', 'confirmed']), gt(appointments.startsAt, new Date()),
+      ));
+      if (total) throw new ConflictException(`This team member has ${total} upcoming appointment${total === 1 ? '' : 's'}. Move or cancel them before suspending access.`);
+    }
     const [membership] = await this.db.update(practiceMemberships).set({ status: input.status, updatedAt: new Date() })
       .where(eq(practiceMemberships.id, target.id)).returning({ id: practiceMemberships.id, status: practiceMemberships.status });
     return membership;
@@ -380,7 +453,7 @@ export class PracticeSetupService {
     await this.authorization.assertPermission({ userId, practiceId, permissionCode: 'services.manage' });
     await this.assertProfession(practiceId, input.practiceProfessionId);
     await this.assertServiceAssignments(practiceId, input.practiceProfessionId, input.professionalUserIds, input.locationIds);
-    return this.db.transaction(async (tx) => {
+    const service = await this.db.transaction(async (tx) => {
       const [service] = await tx.insert(services).values({
         practiceId, practiceProfessionId: input.practiceProfessionId, name: input.name,
         description: input.description, durationMinutes: input.durationMinutes,
@@ -395,6 +468,8 @@ export class PracticeSetupService {
       })));
       return service;
     });
+    await this.invalidatePublicBooking(practiceId);
+    return service;
   }
 
   async updateService(userId: string, practiceId: string, serviceId: string, input: ServiceInput) {
@@ -403,9 +478,10 @@ export class PracticeSetupService {
       .where(and(eq(services.id, serviceId), eq(services.practiceId, practiceId))).limit(1);
     if (!existing) throw new NotFoundException('Service not found in this practice');
     if (existing.practiceProfessionId !== input.practiceProfessionId) throw new BadRequestException('A service cannot change profession after creation; create a separate service');
+    const [{ total: upcomingBookings }] = await this.db.select({ total: count() }).from(appointments).where(and(eq(appointments.practiceId, practiceId), eq(appointments.serviceId, serviceId), inArray(appointments.status, ['pending', 'confirmed']), gt(appointments.startsAt, new Date())));
     await this.assertProfession(practiceId, input.practiceProfessionId);
     await this.assertServiceAssignments(practiceId, input.practiceProfessionId, input.professionalUserIds, input.locationIds);
-    return this.db.transaction(async (tx) => {
+    const service = await this.db.transaction(async (tx) => {
       const [service] = await tx.update(services).set({
         practiceProfessionId: input.practiceProfessionId, name: input.name, description: input.description,
         durationMinutes: input.durationMinutes, bufferBeforeMinutes: input.bufferBeforeMinutes,
@@ -422,8 +498,13 @@ export class PracticeSetupService {
         await tx.insert(serviceLocations).values({ serviceId, practiceId, practiceProfessionId: input.practiceProfessionId, locationId, active: true })
           .onConflictDoUpdate({ target: [serviceLocations.serviceId, serviceLocations.locationId], set: { practiceProfessionId: input.practiceProfessionId, practiceId, active: true } });
       }
+      if (upcomingBookings > 0) {
+        await tx.insert(auditEvents).values({ practiceId, actorUserId: userId, action: 'service.updated_with_existing_bookings', entityType: 'service', entityId: serviceId, metadata: { upcomingBookingsPreserved: upcomingBookings, active: input.active, onlineBookable: input.onlineBookable } });
+      }
       return service;
     });
+    await this.invalidatePublicBooking(practiceId);
+    return { ...service, impact: { upcomingBookingsPreserved: upcomingBookings } };
   }
 
   async listServices(userId: string, practiceId: string, locationId?: string) {
@@ -472,6 +553,15 @@ export class PracticeSetupService {
       .innerJoin(practiceMemberships, eq(practiceMemberships.id, practiceMembershipRoles.membershipId))
       .where(and(eq(practiceMemberships.practiceId, practiceId), eq(practiceMemberships.userId, userId), eq(practiceMemberships.status, 'active')));
     return rows.some((row) => row.role === 'owner');
+  }
+
+  private async invalidatePublicBooking(practiceId: string) {
+    // These cache entries only accelerate public reads. A Redis outage must not
+    // turn a successful service save into a failed setup operation.
+    await Promise.all([
+      this.redis.del(`ayushman:v3:public-practice:${practiceId}`),
+      this.redis.incr('ayushman:v4:directory:generation'),
+    ]).catch(() => undefined);
   }
 
 }

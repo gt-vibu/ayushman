@@ -3,7 +3,9 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   outputFileTracingRoot: process.cwd(),
-  distDir: process.env.NODE_ENV === 'development' ? '.next-dev' : (process.env.NEXT_DIST_DIR ?? '.next'),
+  distDir: process.env.NODE_ENV === 'development'
+    ? (process.env.NEXT_DIST_DIR ?? '.next-dev')
+    : (process.env.NEXT_DIST_DIR ?? '.next'),
   async rewrites() {
     // On Vercel, the project-level services rewrites route /api/* to the API service.
     // Keep this proxy only for running this Next app by itself during local development.

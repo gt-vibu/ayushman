@@ -176,6 +176,83 @@
       "when": 1792578681000,
       "tag": "0024_public_booking_enabled_by_default",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792578682000,
+      "tag": "0025_practitioner_walk_in_visits",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792578683000,
+      "tag": "0026_practice_service_modes",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1792578684000,
+      "tag": "0027_user_phone",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1792578685000,
+      "tag": "0028_practitioner_private_visit_notes",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1792681200000,
+      "tag": "0029_offline_clients_and_visit_times",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1792681201000,
+      "tag": "0030_allow_historical_visit_entries",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1792681202000,
+      "tag": "0031_audited_appointment_status_correction",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1792998897018,
+      "tag": "0032_glorious_invaders",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1792999100000,
+      "tag": "0033_cross_practice_practitioner_conflicts",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792999221316,
+      "tag": "0034_tan_zzzax",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1793001632543,
+      "tag": "0035_icy_bedlam",
+      "breakpoints": true
     }
   ]
 }

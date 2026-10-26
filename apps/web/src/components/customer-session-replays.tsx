@@ -42,6 +42,7 @@ export function CustomerSessionReplays() {
       {item.status === 'ready_for_review' && <p className="customer-replay-status"><Clock3 size={14}/> Your recording is private while your practitioner reviews it.</p>}
       {item.status === 'shared' && item.sharingStatus === 'shared' && <div className="customer-replay-audio"><div><strong>Shared session audio</strong><small>{item.durationSeconds ? `${Math.floor(item.durationSeconds / 60)} min ${item.durationSeconds % 60} sec` : 'Audio recording'} · available until {item.retentionExpiresAt ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(item.retentionExpiresAt)) : 'retention expiry'}</small></div><audio controls preload="metadata" controlsList="nodownload" src={`${API_BASE}/customer/me/session-recordings/${item.id}/content`}/><button type="button" className="text-link" disabled={busyId === item.id} onClick={() => void restrict(item)}>Restrict my access</button></div>}
       {item.status === 'declined' && <p className="customer-replay-status">Recording declined. Your appointment is not affected.</p>}
+      {item.status === 'failed' && <p className="customer-replay-status">The recording upload was interrupted before it could be saved. No replay is available, and the appointment is not affected.</p>}
     </article>)}</div>}
     <small className="customer-replay-privacy"><ShieldCheck size={13}/> Only you and the assigned practitioner can access a shared replay. Downloads are disabled in the player.</small>
   </section>;

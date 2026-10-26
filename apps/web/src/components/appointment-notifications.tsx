@@ -14,13 +14,13 @@ type NoticeResponse = { items: BookingNotice[]; unreadCount: number };
 
 export function AppointmentNotifications() {
   const router = useRouter();
-  const { practice } = usePractice();
+  const { practice, branchId } = usePractice();
   const [items, setItems] = useState<BookingNotice[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const endpoint = practicePath(practice.id, '/notifications');
+  const endpoint = practicePath(practice.id, `/notifications${branchId ? `?locationId=${encodeURIComponent(branchId)}` : ''}`);
 
   const refresh = useCallback(async () => {
     try {
@@ -62,7 +62,7 @@ export function AppointmentNotifications() {
             : items.length ? <ul>{items.map((item) => <li key={item.id}>
               <button type="button" className={`notification-item${item.readAt ? '' : ' notification-item-unread'}`} onClick={() => void openAppointment(item)}>
                 <span className="notification-icon"><CalendarDays size={16}/></span>
-                <span className="notification-copy"><strong>{item.kind === 'customer_cancellation' ? `${item.customerName} cancelled ${item.serviceName}` : item.kind === 'customer_rescheduled' ? `${item.customerName} rescheduled ${item.serviceName}` : `${item.customerName} booked ${item.serviceName}`}</strong><small>{new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: item.timezone }).format(new Date(item.startsAt))} · {item.locationName}</small><em>{item.kind === 'customer_cancellation' ? 'Appointment cancelled' : item.kind === 'customer_rescheduled' ? 'New appointment time selected' : item.status === 'pending' ? 'Needs your confirmation' : 'Appointment confirmed'}</em></span>
+                <span className="notification-copy"><strong>{item.kind === 'customer_cancellation' ? `${item.customerName} cancelled ${item.serviceName}` : item.kind === 'customer_rescheduled' ? `${item.customerName} rescheduled ${item.serviceName}` : item.kind === 'appointment_reassigned_away' ? `${item.customerName} was reassigned to another practitioner` : item.kind === 'appointment_assigned' ? `${item.customerName} was assigned to you` : `${item.customerName} booked ${item.serviceName}`}</strong><small>{new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: item.timezone }).format(new Date(item.startsAt))} · {item.locationName}</small><em>{item.kind === 'customer_cancellation' ? 'Appointment cancelled' : item.kind === 'customer_rescheduled' ? 'New appointment time selected' : item.kind === 'appointment_reassigned_away' ? 'Appointment reassigned' : item.kind === 'appointment_assigned' ? 'New appointment assigned' : item.status === 'pending' ? 'Needs your confirmation' : 'Appointment confirmed'}</em></span>
                 {!item.readAt && <span className="notification-unread-dot" aria-label="Unread"/>}
               </button>
             </li>)}</ul>

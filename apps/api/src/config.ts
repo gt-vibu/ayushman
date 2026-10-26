@@ -3,8 +3,8 @@ import { z } from 'zod';
 const Environment = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   API_PORT: z.coerce.number().int().min(1).max(65535).default(4100),
-  WEB_ORIGIN: z.preprocess((value) => value === '' ? undefined : value, z.url().default('http://localhost:3101')),
-  ADMIN_WEB_ORIGIN: z.preprocess((value) => value === '' ? undefined : value, z.url().default('http://localhost:3102')),
+  WEB_ORIGIN: z.preprocess((value) => value === '' ? undefined : value, z.url().optional()),
+  ADMIN_WEB_ORIGIN: z.preprocess((value) => value === '' ? undefined : value, z.url().optional()),
   DATABASE_URL: z.url(),
   DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
   REDIS_URL: z.url().optional(),
@@ -23,7 +23,13 @@ const Environment = z.object({
   AUTH_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).max(120).default(12),
   PUBLIC_BOOKING_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).max(600).default(30),
   BOOKING_HOLD_TTL_SECONDS: z.coerce.number().int().min(30).max(600).default(180),
-});
+}).transform((environment) => ({
+  ...environment,
+  // Never generate localhost links from a hosted API when an environment
+  // variable is missing. Local development keeps the convenient local URL.
+  WEB_ORIGIN: environment.WEB_ORIGIN ?? (environment.NODE_ENV === 'production' ? 'https://ayushman-yi5h.vercel.app' : 'http://localhost:3101'),
+  ADMIN_WEB_ORIGIN: environment.ADMIN_WEB_ORIGIN ?? (environment.NODE_ENV === 'production' ? 'https://ayushman-yi5h.vercel.app' : 'http://localhost:3102'),
+}));
 
 export type Environment = z.infer<typeof Environment>;
 

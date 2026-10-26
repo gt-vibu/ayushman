@@ -1,20 +1,27 @@
-import { Body, Controller, Delete, Get, Headers, Ip, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, Ip, Param, Patch, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
 import type { AuthenticatedRequest, CustomerAuthenticatedRequest } from '../auth/session.guard.js';
 import { CustomerSessionGuard, SessionGuard } from '../auth/session.guard.js';
 import {
-  AvailabilityBatchInput, AvailabilityExceptionInput, AvailabilityExceptionQuery, BookingPolicyInput, LocationScopeQuery,
-  AppointmentListQuery, AppointmentStatusInput, AppointmentRescheduleInput, BulkRescheduleOptionsInput, BulkAppointmentRescheduleInput, CustomerAppointmentCancelInput, ClientListQuery, CreateFollowUpInput, ProfessionalScheduleInput, PublicAvailabilityQuery, PublicBookingHoldInput, PublicBookingInput, PublicDirectoryQuery,
+  AvailabilityBatchInput, AvailabilityExceptionInput, AvailabilityExceptionQuery, BookingPolicyInput, LocationScopeQuery, UpdateClientInput, ClientMergeInput, ClientAccountLinkInput,
+  AppointmentListQuery, AppointmentPaymentInput, AppointmentStatusInput, AppointmentStatusCorrectionInput, AppointmentServiceChangeInput, AppointmentRescheduleInput, AppointmentReassignmentInput, BulkRescheduleOptionsInput, BulkAppointmentRescheduleInput, CustomerAppointmentCancelInput, ClientListQuery, CreateClientInput, ManualAppointmentInput, CreateFollowUpInput, LinkFollowUpInput, GuestPublicBookingInput, ProfessionalScheduleInput, PublicAvailabilityQuery, PublicBookingHoldInput, PublicBookingInput, PublicDirectoryQuery,
   type AvailabilityBatchInput as AvailabilityBatchPayload, type AvailabilityExceptionInput as AvailabilityExceptionPayload,
   type AvailabilityExceptionQuery as AvailabilityExceptionQueryPayload,
   type AppointmentListQuery as AppointmentListPayload, type AppointmentStatusInput as AppointmentStatusPayload,
+  type AppointmentStatusCorrectionInput as AppointmentStatusCorrectionPayload,
+  type AppointmentServiceChangeInput as AppointmentServiceChangePayload,
+  type AppointmentReassignmentInput as AppointmentReassignmentPayload,
+  type AppointmentPaymentInput as AppointmentPaymentPayload,
   type AppointmentRescheduleInput as AppointmentReschedulePayload, type CustomerAppointmentCancelInput as CustomerAppointmentCancelPayload,
   type BulkRescheduleOptionsInput as BulkRescheduleOptionsPayload, type BulkAppointmentRescheduleInput as BulkAppointmentReschedulePayload,
   type CreateFollowUpInput as CreateFollowUpPayload,
+  type LinkFollowUpInput as LinkFollowUpPayload,
   type ClientListQuery as ClientListPayload,
+  type CreateClientInput as CreateClientPayload, type UpdateClientInput as UpdateClientPayload, type ClientMergeInput as ClientMergePayload, type ClientAccountLinkInput as ClientAccountLinkPayload, type ManualAppointmentInput as ManualAppointmentPayload,
   type BookingPolicyInput as BookingPolicyPayload, type LocationScopeQuery as LocationScopePayload,
   type PublicAvailabilityQuery as PublicAvailabilityPayload, type PublicBookingHoldInput as PublicBookingHoldPayload, type PublicBookingInput as PublicBookingPayload,
   type PublicDirectoryQuery as PublicDirectoryPayload,
   type ProfessionalScheduleInput as ProfessionalSchedulePayload,
+  type GuestPublicBookingInput as GuestPublicBookingPayload,
 } from '@ayushman-v2/contracts';
 import { ZodValidationPipe } from '../zod-validation.pipe.js';
 import { AvailabilitySetupService } from './availability-setup.service.js';
@@ -37,8 +44,8 @@ export class BookingController {
 
   @Get('practices/:practiceId/notifications')
   @UseGuards(SessionGuard)
-  listNotifications(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string) {
-    return this.appointments.listNotifications(req.user.id, practiceId);
+  listNotifications(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Query(new ZodValidationPipe(LocationScopeQuery)) query: LocationScopePayload) {
+    return this.appointments.listNotifications(req.user.id, practiceId, query.locationId);
   }
 
   @Post('practices/:practiceId/notifications/:notificationId/read')
@@ -49,8 +56,20 @@ export class BookingController {
 
   @Post('practices/:practiceId/appointments/follow-up')
   @UseGuards(SessionGuard)
-  createFollowUp(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Body(new ZodValidationPipe(CreateFollowUpInput)) body: CreateFollowUpPayload) {
-    return this.appointments.createFollowUp(req.user.id, practiceId, body);
+  createFollowUp(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Body(new ZodValidationPipe(CreateFollowUpInput)) body: CreateFollowUpPayload, @Headers('idempotency-key') key?: string) {
+    return this.appointments.createFollowUp(req.user.id, practiceId, body, key);
+  }
+
+  @Post('practices/:practiceId/appointments/:appointmentId/link-follow-up')
+  @UseGuards(SessionGuard)
+  linkExistingFollowUp(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Param('appointmentId') appointmentId: string, @Body(new ZodValidationPipe(LinkFollowUpInput)) body: LinkFollowUpPayload) {
+    return this.appointments.linkExistingFollowUp(req.user.id, practiceId, appointmentId, body.sourceAppointmentId);
+  }
+
+  @Get('practices/:practiceId/appointments/:appointmentId/follow-up-sources')
+  @UseGuards(SessionGuard)
+  followUpSources(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Param('appointmentId') appointmentId: string) {
+    return this.appointments.followUpSources(req.user.id, practiceId, appointmentId);
   }
 
   @Get('practices/:practiceId/appointments/follow-up-availability')
@@ -65,10 +84,34 @@ export class BookingController {
     return this.appointments.updateStatus(req.user.id, practiceId, appointmentId, body);
   }
 
+  @Post('practices/:practiceId/appointments/:appointmentId/correct-status')
+  @UseGuards(SessionGuard)
+  correctAppointmentStatus(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Param('appointmentId') appointmentId: string, @Body(new ZodValidationPipe(AppointmentStatusCorrectionInput)) body: AppointmentStatusCorrectionPayload) {
+    return this.appointments.correctStatus(req.user.id, practiceId, appointmentId, body);
+  }
+
+  @Post('practices/:practiceId/appointments/:appointmentId/service-change')
+  @UseGuards(SessionGuard)
+  changeAppointmentService(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Param('appointmentId') appointmentId: string, @Body(new ZodValidationPipe(AppointmentServiceChangeInput)) body: AppointmentServiceChangePayload) {
+    return this.appointments.changeServiceAtVisit(req.user.id, practiceId, appointmentId, body);
+  }
+
+  @Post('practices/:practiceId/appointments/:appointmentId/payment')
+  @UseGuards(SessionGuard)
+  updateAppointmentPayment(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Param('appointmentId') appointmentId: string, @Body(new ZodValidationPipe(AppointmentPaymentInput)) body: AppointmentPaymentPayload) {
+    return this.appointments.updatePayment(req.user.id, practiceId, appointmentId, body);
+  }
+
   @Post('practices/:practiceId/appointments/:appointmentId/reschedule')
   @UseGuards(SessionGuard)
   rescheduleAppointment(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Param('appointmentId') appointmentId: string, @Body(new ZodValidationPipe(AppointmentRescheduleInput)) body: AppointmentReschedulePayload) {
     return this.appointments.practitionerReschedule(req.user.id, practiceId, appointmentId, body.startsAt);
+  }
+
+  @Post('practices/:practiceId/appointments/:appointmentId/reassign')
+  @UseGuards(SessionGuard)
+  reassignAppointment(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Param('appointmentId') appointmentId: string, @Body(new ZodValidationPipe(AppointmentReassignmentInput)) body: AppointmentReassignmentPayload) {
+    return this.appointments.reassignPractitioner(req.user.id, practiceId, appointmentId, body);
   }
 
   @Post('practices/:practiceId/appointments/bulk-reschedule-options')
@@ -87,6 +130,12 @@ export class BookingController {
   @UseGuards(SessionGuard)
   rescheduleAvailability(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Param('appointmentId') appointmentId: string, @Query(new ZodValidationPipe(PublicAvailabilityQuery)) query: PublicAvailabilityPayload) {
     return this.appointments.practitionerAvailability(req.user.id, practiceId, appointmentId, query);
+  }
+
+  @Get('practices/:practiceId/appointments/:appointmentId/reassignment-availability')
+  @UseGuards(SessionGuard)
+  reassignmentAvailability(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Param('appointmentId') appointmentId: string, @Query(new ZodValidationPipe(PublicAvailabilityQuery)) query: PublicAvailabilityPayload) {
+    return this.appointments.reassignmentAvailability(req.user.id, practiceId, appointmentId, query);
   }
 
   @Get('customer/me/appointments/:appointmentId/availability')
@@ -111,6 +160,36 @@ export class BookingController {
   @UseGuards(SessionGuard)
   listClients(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Query(new ZodValidationPipe(ClientListQuery)) query: ClientListPayload) {
     return this.appointments.listClients(req.user.id, practiceId, query);
+  }
+
+  @Post('practices/:practiceId/clients')
+  @UseGuards(SessionGuard)
+  createClient(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Body(new ZodValidationPipe(CreateClientInput)) body: CreateClientPayload) {
+    return this.appointments.createClient(req.user.id, practiceId, body);
+  }
+
+  @Patch('practices/:practiceId/clients/:clientId')
+  @UseGuards(SessionGuard)
+  updateClient(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Param('clientId') clientId: string, @Body(new ZodValidationPipe(UpdateClientInput)) body: UpdateClientPayload) {
+    return this.appointments.updateClient(req.user.id, practiceId, clientId, body);
+  }
+
+  @Post('practices/:practiceId/clients/:clientId/merge')
+  @UseGuards(SessionGuard)
+  mergeClient(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Param('clientId') clientId: string, @Body(new ZodValidationPipe(ClientMergeInput)) body: ClientMergePayload) {
+    return this.appointments.mergeClient(req.user.id, practiceId, clientId, body);
+  }
+
+  @Put('practices/:practiceId/clients/:clientId/account-link')
+  @UseGuards(SessionGuard)
+  linkClientAccount(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Param('clientId') clientId: string, @Body(new ZodValidationPipe(ClientAccountLinkInput)) body: ClientAccountLinkPayload) {
+    return this.appointments.linkClientAccount(req.user.id, practiceId, clientId, body);
+  }
+
+  @Post('practices/:practiceId/appointments/manual')
+  @UseGuards(SessionGuard)
+  createManualAppointment(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Body(new ZodValidationPipe(ManualAppointmentInput)) body: ManualAppointmentPayload, @Headers('idempotency-key') key?: string) {
+    return this.appointments.createManualAppointment(req.user.id, practiceId, body, key);
   }
 
   @Get('practices/:practiceId/availability/rules')
@@ -183,6 +262,17 @@ export class BookingController {
   async publicPractice(@Param('practiceId') practiceId: string, @Ip() ip: string) {
     await this.booking.limitPublicRequest(ip);
     return this.booking.publicPractice(practiceId);
+  }
+
+  @Post('public/practices/:practiceId/guest-bookings')
+  async createGuestBooking(
+    @Param('practiceId') practiceId: string,
+    @Headers('idempotency-key') key: string | undefined,
+    @Body(new ZodValidationPipe(GuestPublicBookingInput)) body: GuestPublicBookingPayload,
+    @Ip() ip: string,
+  ) {
+    await this.booking.limitPublicRequest(ip);
+    return this.booking.createGuestPublicBooking(practiceId, key, body);
   }
 
   @Post('public/practices/:practiceId/bookings')

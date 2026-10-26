@@ -13,7 +13,7 @@ import {
   UserRound,
 } from 'lucide-react';
 import { api, practicePath } from '@/lib/api';
-import type { Branch, Practice, Service, Session, StaffMember } from '@/lib/types';
+import type { Branch, Practice, Service, StaffMember } from '@/lib/types';
 
 type AvailabilityRule = {
   scope: string;
@@ -31,10 +31,9 @@ type Props = {
   branches: Branch[];
   services: Service[];
   staff: StaffMember[];
-  session: Session;
 };
 
-export function SetupAssistant({ practice, branchId, branches, services, staff, session }: Props) {
+export function SetupAssistant({ practice, branchId, branches, services, staff }: Props) {
   const [rules, setRules] = useState<AvailabilityRule[] | null>(null);
   useEffect(() => {
     let active = true;
@@ -51,51 +50,52 @@ export function SetupAssistant({ practice, branchId, branches, services, staff, 
     };
   }, [practice.id, branchId]);
 
-  const ownMember = staff.find((member) => member.userId === session.user.id);
-  const ownProfessionIds = ownMember?.professionalProfileIds ?? [];
-  const ownProfile = ownMember?.professionalProfiles?.find((profile) =>
-    ownProfessionIds.includes(profile.professionId),
-  );
+  const activeProviders = staff.filter((member) => member.status === 'active' && member.roles.includes('professional') && (member.professionalProfileIds?.length ?? 0) > 0);
+  const activeBranch = branches.find((branch) => branch.id === branchId && branch.active);
+  const onlineService = services.find((service) => service.active && service.onlineBookable && service.locationIds?.includes(branchId));
+  const eligibleOnlineProviders = onlineService
+    ? (onlineService.professionalUserIds ?? []).map((id) => staff.find((member) => member.userId === id))
+      .filter((member) => member?.status === 'active' && member.roles.includes('professional') && member.professionalProfileIds?.includes(onlineService.practiceProfessionId))
+    : [];
+  const hasOnlineSchedule = eligibleOnlineProviders.some((member) => rules?.some((rule) =>
+    (rule.scope === 'professional_location' && rule.locationId === branchId || rule.scope === 'professional' && !rule.locationId) &&
+    rule.professionalUserId === member?.userId &&
+    rule.practiceProfessionId === onlineService?.practiceProfessionId && rule.endMinute > rule.startMinute,
+  ));
   const steps = [
     {
       label: 'Choose your first branch',
-      done: Boolean(branchId && branches.some((branch) => branch.id === branchId)),
+      done: Boolean(activeBranch),
       href: '/branches',
       icon: Building2,
     },
     {
-      label: 'Set your profession',
-      done: ownProfessionIds.length > 0,
+      label: 'Assign an active practitioner profile',
+      done: activeProviders.length > 0,
       href: '/staff',
       icon: Stethoscope,
     },
     {
-      label: 'Set your availability',
-      done: Boolean(
-        rules?.some(
-          (rule) =>
-            rule.scope === 'professional_location' &&
-            rule.professionalUserId === session.user.id &&
-            rule.locationId === branchId &&
-            ownProfessionIds.includes(rule.practiceProfessionId ?? '') &&
-            rule.endMinute > rule.startMinute,
-        ),
-      ),
-      href: '/availability',
-      icon: CalendarClock,
-    },
-    {
-      label: 'Create your first service',
-      done: services.some(
-        (service) =>
-          service.active && (service.professionalUserIds ?? []).includes(session.user.id),
-      ),
+      label: !onlineService ? 'Add an active online-bookable service' : !eligibleOnlineProviders.length ? 'Assign a practitioner to the online service' : 'Online service is ready',
+      done: Boolean(onlineService && eligibleOnlineProviders.length && activeBranch),
       href: '/services',
       icon: Stethoscope,
     },
     {
-      label: 'Complete your profile',
-      done: Boolean(ownProfile?.headline || ownProfile?.bio),
+      label: 'Set provider availability',
+      done: Boolean(hasOnlineSchedule),
+      href: '/availability',
+      icon: CalendarClock,
+    },
+    {
+      label: 'Turn on online booking',
+      done: practice.publicBookingEnabled,
+      href: '/settings',
+      icon: CalendarClock,
+    },
+    {
+      label: 'Complete a practitioner profile',
+      done: activeProviders.some((member) => member.professionalProfiles?.some((profile) => profile.headline || profile.bio)),
       href: '/staff',
       icon: UserRound,
     },

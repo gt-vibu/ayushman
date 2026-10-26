@@ -56,12 +56,22 @@ export class CustomerAccountService {
       .where(and(eq(clients.userId, userId), ne(appointments.status, 'held'), isNull(appointments.holdExpiresAt))).orderBy(asc(appointments.startsAt));
     const policyRows = practicesLinked.length ? await this.db.select().from(bookingPolicies).where(inArray(bookingPolicies.practiceId, practicesLinked.map((item) => item.practiceId))) : [];
     const policies = new Map(policyRows.map((policy) => [policy.practiceId, policy]));
+    const appointmentSummaries = new Map(appointmentRows.map((appointment) => [appointment.id, { id: appointment.id, serviceName: appointment.serviceName, startsAt: appointment.startsAt, timezone: appointment.timezone }]));
+    const followUpsBySource = new Map<string, typeof appointmentRows>();
+    for (const appointment of appointmentRows) {
+      if (!appointment.followUpToAppointmentId) continue;
+      const linked = followUpsBySource.get(appointment.followUpToAppointmentId) ?? [];
+      linked.push(appointment);
+      followUpsBySource.set(appointment.followUpToAppointmentId, linked);
+    }
     const now = Date.now();
     const appointmentsLinked = appointmentRows.map((appointment) => {
       const policy = policies.get(appointment.practiceId);
       const minutesUntil = (new Date(appointment.startsAt).getTime() - now) / 60_000;
       const active = ['pending', 'confirmed'].includes(appointment.status) && minutesUntil > 0;
       return { ...appointment,
+        followUpSource: appointment.followUpToAppointmentId ? appointmentSummaries.get(appointment.followUpToAppointmentId) ?? null : null,
+        followUps: (followUpsBySource.get(appointment.id) ?? []).map((followUp) => appointmentSummaries.get(followUp.id)!),
         canCustomerCancel: Boolean(active && policy?.patientCancellationEnabled && minutesUntil > (policy?.cancellationCutoffMinutes ?? 0)),
         canCustomerReschedule: Boolean(active && policy?.patientReschedulingEnabled && minutesUntil > (policy?.reschedulingCutoffMinutes ?? 0)),
       };

@@ -5,6 +5,7 @@ import './globals.css';
 import './design-system.css';
 import './booking.css';
 import './responsive.css';
+import './calendar.css';
 import { CustomerSessionProvider } from '@/lib/customer-session';
 import { PracticeProvider } from '@/lib/practice-context';
 

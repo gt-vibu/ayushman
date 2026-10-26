@@ -10,6 +10,7 @@ import { usePractice } from '@/lib/practice-context';
 import { PageHeader } from '@/components/app-shell';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { PhoneField } from '@/components/ui/phone-field';
+import { PracticeUpdateInput } from '@ayushman-v2/contracts';
 
 export default function SettingsPage() {
   const { practice, permissions, updatePractice } = usePractice();
@@ -26,8 +27,10 @@ export default function SettingsPage() {
 
   async function save(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault(); setBusy(true); setSuccess(''); setError('');
+    const parsed = PracticeUpdateInput.safeParse({ name, phone: phone || null, timezone, publicBookingEnabled, publicListingEnabled, sessionRecordingEnabled, sessionRecordingRetentionDays });
+    if (!parsed.success) { setError(parsed.error.issues[0]?.message ?? 'Check the practice settings and try again.'); setBusy(false); return; }
     try {
-      const updated = await api<Partial<typeof practice>>(practicePath(practice.id), { method: 'PATCH', body: JSON.stringify({ name, phone: phone || null, timezone, publicBookingEnabled, publicListingEnabled, sessionRecordingEnabled, sessionRecordingRetentionDays }) });
+      const updated = await api<Partial<typeof practice>>(practicePath(practice.id), { method: 'PATCH', body: JSON.stringify(parsed.data) });
       updatePractice(updated);
       setSuccess('Practice settings saved.');
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save settings.'); }

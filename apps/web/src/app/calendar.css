@@ -1,0 +1,7 @@
+.calendar-toolbar{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:0 0 18px;padding:13px;border:1px solid var(--border);border-radius:12px;background:#fffaf8}
+.calendar-date-field,.calendar-sort-field{display:grid;gap:5px;color:var(--slate);font-size:10px;font-weight:650}
+.calendar-date-field{width:min(290px,100%)}
+.calendar-sort-field{width:min(220px,100%)}
+.calendar-date-field .ui-date-trigger,.calendar-sort-field .ui-select-trigger{min-height:39px;font-size:11px}
+.calendar-selected-date{margin:0 0 10px auto;color:var(--muted-foreground);font-size:11px}
+@media(max-width:640px){.calendar-toolbar{align-items:stretch}.calendar-date-field,.calendar-sort-field{width:100%}.calendar-selected-date{margin:2px 0 0}}

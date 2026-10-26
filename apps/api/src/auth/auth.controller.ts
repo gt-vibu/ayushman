@@ -96,16 +96,24 @@ export class AuthController {
   async identity(@Req() request: Request) {
     const customerToken = request.cookies?.[CUSTOMER_COOKIE] as string | undefined;
     if (customerToken) {
-      const user = await this.auth.authenticate(customerToken);
-      const customer = await this.auth.customerProfile(user.id);
-      return { kind: 'customer' as const, customer: { fullName: customer.fullName, email: customer.email, phone: customer.phone } };
+      try {
+        const user = await this.auth.authenticate(customerToken);
+        const customer = await this.auth.customerProfile(user.id);
+        return { kind: 'customer' as const, customer: { fullName: customer.fullName, email: customer.email, phone: customer.phone } };
+      } catch (error) {
+        if (!(error instanceof UnauthorizedException)) throw error;
+      }
     }
     const practiceToken = request.cookies?.[COOKIE] as string | undefined;
     if (practiceToken) {
-      await this.auth.authenticate(practiceToken);
-      return { kind: 'practice' as const };
+      try {
+        await this.auth.authenticate(practiceToken);
+        return { kind: 'practice' as const };
+      } catch (error) {
+        if (!(error instanceof UnauthorizedException)) throw error;
+      }
     }
-    throw new UnauthorizedException('Sign in to continue');
+    return { kind: 'signed_out' as const };
   }
 
   @Post('platform-login')

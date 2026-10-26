@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Put, Query, Req, UseGuards }
 import type { AuthenticatedRequest } from '../auth/session.guard.js';
 import { SessionGuard } from '../auth/session.guard.js';
 import {
-  LocationInput, LocationProfessionInput, PracticeProfessionInput, PracticeProfessionUpdateInput, PracticeUpdateInput,
+  CreatePracticeProfessionInput, LocationInput, LocationProfessionInput, PracticeProfessionInput, PracticeProfessionUpdateInput, PracticeUpdateInput,
   LocationScopeQuery, LocationUpdateInput, MembershipStatusInput, ProfessionalProfileInput,
   ServiceInput, StaffAssignmentInput, StaffLocationsInput, StaffRolesInput,
   MembershipPermissionOverridesInput,
@@ -10,6 +10,7 @@ import {
   type LocationInput as LocationPayload, type LocationProfessionInput as LocationProfessionPayload,
   type LocationScopeQuery as LocationScopePayload, type LocationUpdateInput as LocationUpdatePayload,
   type MembershipStatusInput as MembershipStatusPayload, type PracticeProfessionInput as ProfessionPayload,
+  type CreatePracticeProfessionInput as CreateProfessionPayload,
   type PracticeProfessionUpdateInput as ProfessionUpdatePayload,
   type MembershipPermissionOverridesInput as PermissionOverridesPayload,
   type PracticeRolePermissionSettingsInput as RolePermissionSettingsPayload,
@@ -48,6 +49,11 @@ export class PracticeSetupController {
   @Post('professions')
   addProfession(@Req() req: AuthenticatedRequest, @Param('practiceId') id: string, @Body(new ZodValidationPipe(PracticeProfessionInput)) body: ProfessionPayload) {
     return this.setup.addProfession(req.user.id, id, body);
+  }
+
+  @Post('professions/quick-add')
+  quickAddProfession(@Req() req: AuthenticatedRequest, @Param('practiceId') id: string, @Body(new ZodValidationPipe(CreatePracticeProfessionInput)) body: CreateProfessionPayload) {
+    return this.setup.quickAddProfession(req.user.id, id, body);
   }
 
   @Patch('professions/:professionId')

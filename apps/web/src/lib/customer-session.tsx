@@ -20,10 +20,10 @@ export function CustomerSessionProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     const version = ++requestVersion.current;
     try {
-      const identity = await api<{ kind: 'customer'; customer: CustomerProfileSummary } | { kind: 'practice' }>('/auth/identity');
+      const identity = await api<{ kind: 'customer'; customer: CustomerProfileSummary } | { kind: 'practice' } | { kind: 'signed_out' }>('/auth/identity');
       if (version !== requestVersion.current) return;
       if (identity.kind === 'customer') { setCustomer(identity.customer); setStatus('customer'); }
-      else { setCustomer(null); setStatus('practice'); }
+      else { setCustomer(null); setStatus(identity.kind === 'practice' ? 'practice' : 'signed-out'); }
     } catch (cause) {
       if (version !== requestVersion.current) return;
       setCustomer(null);

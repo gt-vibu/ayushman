@@ -7,6 +7,7 @@ export const REDIS = Symbol('REDIS');
 
 export interface RedisStore {
   incr(key: string): Promise<number>;
+  del(key: string): Promise<number>;
   expire(key: string, seconds: number): Promise<number>;
   get(key: string): Promise<string | null>;
   set(key: string, value: string, mode: 'EX', seconds: number): Promise<'OK' | null>;
@@ -22,6 +23,7 @@ class UpstashRedisStore implements RedisStore {
   }
 
   incr(key: string) { return this.client.incr(key); }
+  del(key: string) { return this.client.del(key); }
   expire(key: string, seconds: number) { return this.client.expire(key, seconds); }
   get(key: string) { return this.client.get<string>(key); }
   async set(key: string, value: string, mode: 'EX', seconds: number) {

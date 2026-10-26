@@ -19,8 +19,8 @@ export class PracticeRecordsController {
   constructor(private readonly records: RecordsService) {}
 
   @Get()
-  list(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Query('clientId') clientId?: string) {
-    return this.records.list(req.user.id, practiceId, clientId);
+  list(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Query('clientId') clientId?: string, @Query('locationId') locationId?: string) {
+    return this.records.list(req.user.id, practiceId, clientId, locationId);
   }
 
   @Post('files')

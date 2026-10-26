@@ -89,15 +89,15 @@ export default function ProfilePage() {
 
   const canEditProfession = permissions['staff.manage'] && (member?.roles.includes('professional') || member?.roles.includes('owner'));
   return <>
-    <PageHeader eyebrow="ACCOUNT" title="Profile" description="Manage your practice identity, practitioner profile, and sign-in security."/>
-    <section className="section-card settings-card profile-section">
+    <PageHeader eyebrow="ACCOUNT" title="Profile" description="Manage your account and sign-in security."/>
+    {permissions['practice.update'] && <section className="section-card settings-card profile-section">
       <div className="section-heading"><div><p className="eyebrow">PRACTICE</p><h2><UserRound size={18}/> Practice profile</h2></div></div>
       <p className="page-description">This name is shown to customers when they discover and book your practice.</p>
       <form className="profile-form" onSubmit={savePractice}>
         <label>Practice name<input required minLength={2} maxLength={180} disabled={!permissions['practice.update']} value={practiceName} onChange={(event) => setPracticeName(event.target.value)}/></label>
-        {permissions['practice.update'] ? <div className="profile-form-actions">{practiceMessage && <span className="save-success"><Check size={15}/>{practiceMessage}</span>}{practiceError && <span className="form-error" role="alert">{practiceError}</span>}<button className="button button-primary" disabled={practiceBusy}>{practiceBusy ? 'Saving…' : 'Save practice name'}</button></div> : <p className="field-hint">Ask a practice owner to change the practice name.</p>}
+        <div className="profile-form-actions">{practiceMessage && <span className="save-success"><Check size={15}/>{practiceMessage}</span>}{practiceError && <span className="form-error" role="alert">{practiceError}</span>}<button className="button button-primary" disabled={practiceBusy}>{practiceBusy ? 'Saving…' : 'Save practice name'}</button></div>
       </form>
-    </section>
+    </section>}
 
     {canEditProfession && <section className="section-card settings-card profile-section">
       <div className="section-heading"><div><p className="eyebrow">PRACTITIONER</p><h2><UserRound size={18}/> Profession and profile</h2></div></div>
@@ -112,8 +112,6 @@ export default function ProfilePage() {
         <div className="profile-form-actions"><button className="button button-primary" disabled={profileBusy || !professionId || !locationIds.length}>{profileBusy ? 'Saving…' : 'Save professional profile'}</button></div>
       </form>
     </section>}
-    {!canEditProfession && permissions['staff.read'] && <section className="section-card settings-card profile-section"><p className="eyebrow">PRACTITIONER</p><h2>Profession and profile</h2><p className="page-description">Your account does not have permission to edit a professional profile. Ask the practice owner to enable practitioner management for your role.</p></section>}
-
     <section className="section-card settings-card profile-section">
       <div className="section-heading"><div><p className="eyebrow">SECURITY</p><h2><LockKeyhole size={18}/> Change password</h2></div></div>
       <p className="page-description">Use at least 12 characters. Changing your password signs out other active sessions.</p>

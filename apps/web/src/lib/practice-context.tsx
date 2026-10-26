@@ -13,6 +13,7 @@ type ContextValue = {
   branches: Branch[];
   professions: PracticeProfession[];
   permissions: Record<string, boolean>;
+  permissionsReady: boolean;
   branchId: string;
   setBranchId: (id: string) => void;
   updatePractice: (next: Partial<Practice>) => void;
@@ -33,8 +34,10 @@ export function PracticeProvider({ children }: Readonly<{ children: ReactNode }>
   const [session, setSession] = useState<Session | null>(null);
   const [practice, setPractice] = useState<Practice | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [branchesLoadedForPractice, setBranchesLoadedForPractice] = useState('');
   const [professions, setProfessions] = useState<PracticeProfession[]>([]);
   const [permissions, setPermissions] = useState<Record<string, boolean>>({});
+  const [loadedPermissionScope, setLoadedPermissionScope] = useState('');
   const [practiceId, setPracticeId] = useState('');
   const [branchId, setBranchIdState] = useState('');
   const [loading, setLoading] = useState(true);
@@ -90,8 +93,16 @@ export function PracticeProvider({ children }: Readonly<{ children: ReactNode }>
       const storedBranch = localStorage.getItem(SAVED_BRANCH);
       const nextBranch = nextBranches.find((branch) => branch.id === storedBranch)?.id ?? nextBranches[0]?.id ?? '';
       setBranchIdState(nextBranch);
+      // Resolve the branch before loading branch-scoped permissions. Otherwise
+      // an initial empty-scope response can briefly hide granted pages/actions
+      // and the route guard may redirect the user before their real grants load.
+      setBranchesLoadedForPractice(practiceId);
     }).catch((cause: unknown) => {
-      if (active) setError(cause instanceof Error ? cause.message : 'Could not load practice locations.');
+      if (!active) return;
+      setBranches([]);
+      setBranchIdState('');
+      setBranchesLoadedForPractice(practiceId);
+      setError(cause instanceof Error ? cause.message : 'Could not load practice locations.');
     });
     void api<PracticeProfession[]>(`/practices/${practiceId}/professions`).then((nextProfessions) => {
       if (active) setProfessions(nextProfessions);
@@ -102,16 +113,16 @@ export function PracticeProvider({ children }: Readonly<{ children: ReactNode }>
   }, [practiceId]);
 
   useEffect(() => {
-    if (!practiceId || !practice) return;
+    if (!practiceId || !practice || branchesLoadedForPractice !== practiceId) return;
     let active = true;
     const query = branchId ? `?locationId=${encodeURIComponent(branchId)}` : '';
     api<Record<string, boolean>>(`/practices/${practiceId}/me/permissions${query}`).then((value) => {
-      if (active) setPermissions(value);
+      if (active) { setPermissions(value); setLoadedPermissionScope(`${practiceId}:${branchId}`); }
     }).catch(() => {
-      if (active) setPermissions({});
+      if (active) { setPermissions({}); setLoadedPermissionScope(`${practiceId}:${branchId}`); }
     });
     return () => { active = false; };
-  }, [practiceId, practice, branchId]);
+  }, [practiceId, practice, branchId, branchesLoadedForPractice]);
 
   const setBranchId = (id: string) => {
     setBranchIdState(id);
@@ -139,14 +150,15 @@ export function PracticeProvider({ children }: Readonly<{ children: ReactNode }>
     await api('/auth/logout', { method: 'POST' }).catch(() => undefined);
     localStorage.removeItem(SAVED_PRACTICE);
     sessionLoaded.current = false;
-    setSession(null); setPractice(null); setBranches([]); setProfessions([]); setPermissions({}); setPracticeId(''); setBranchIdState(''); setLoading(true);
+    setSession(null); setPractice(null); setBranches([]); setBranchesLoadedForPractice(''); setProfessions([]); setPermissions({}); setLoadedPermissionScope(''); setPracticeId(''); setBranchIdState(''); setLoading(true);
     router.replace('/login');
   }
 
   const membershipList = session?.practices ?? [];
+  const permissionsReady = Boolean(practiceId && practice) && branchesLoadedForPractice === practiceId && loadedPermissionScope === `${practiceId}:${branchId}`;
   const value = useMemo(() => session && practice ? {
-    session, practice, branches, professions, permissions, branchId, setBranchId, updatePractice, refreshBranches, refreshProfessions, logout,
-  } : null, [session, practice, branches, professions, permissions, branchId, updatePractice, refreshProfessions]);
+    session, practice, branches, professions, permissions, permissionsReady, branchId, setBranchId, updatePractice, refreshBranches, refreshProfessions, logout,
+  } : null, [session, practice, branches, professions, permissions, permissionsReady, branchId, updatePractice, refreshProfessions]);
 
   if (!shouldLoadWorkspace) return <PracticeContext.Provider value={null}>{children}</PracticeContext.Provider>;
   // Show the requested page as soon as its practice and branch data arrive.

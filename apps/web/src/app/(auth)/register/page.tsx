@@ -6,25 +6,27 @@ import type { ChangeEvent, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Leaf } from 'lucide-react';
 import { api } from '@/lib/api';
+import { PhoneField } from '@/components/ui/phone-field';
+import { RegistrationInput } from '@ayushman-v2/contracts';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ name: '', email: '', password: '', practice: '' });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', practice: '' });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const update = (field: keyof typeof form) => (event: ChangeEvent<HTMLInputElement>) => setForm((value) => ({ ...value, [field]: event.target.value }));
 
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setBusy(true); setError('');
+    event.preventDefault(); setError('');
+    const parsed = RegistrationInput.safeParse({ fullName: form.name, email: form.email, phone: form.phone || undefined, password: form.password, practice: { name: form.practice, timezone: 'Asia/Kolkata', currency: 'INR' } });
+    if (!parsed.success) { setError(parsed.error.issues[0]?.message ?? 'Check the form fields and try again.'); return; }
+    setBusy(true);
     try {
       const response = await api<{ practiceId: string }>('/auth/register', {
-        method: 'POST', body: JSON.stringify({
-          fullName: form.name, email: form.email, password: form.password,
-          practice: { name: form.practice, timezone: 'Asia/Kolkata', currency: 'INR' },
-        }),
+        method: 'POST', body: JSON.stringify(parsed.data),
       });
       localStorage.setItem('ayushman.practice_id', response.practiceId);
-      router.replace('/dashboard');
+      router.replace('/setup');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Account setup failed.');
     } finally { setBusy(false); }
@@ -37,6 +39,7 @@ export default function RegisterPage() {
     <form className="form-stack" onSubmit={submit}>
       <label>Your name<input suppressHydrationWarning autoComplete="name" required minLength={2} maxLength={160} value={form.name} onChange={update('name')} /></label>
       <label>Email address<input suppressHydrationWarning autoComplete="email" type="email" required maxLength={320} value={form.email} onChange={update('email')} /></label>
+      <label>Phone number <small>Optional</small><PhoneField value={form.phone} onChange={(phone) => setForm((value) => ({ ...value, phone }))}/></label>
       <label>Practice name<input suppressHydrationWarning autoComplete="organization" required minLength={2} maxLength={180} value={form.practice} onChange={update('practice')} /></label>
       <label>Password<input suppressHydrationWarning autoComplete="new-password" type="password" required minLength={12} maxLength={128} value={form.password} onChange={update('password')} /><small>Use at least 12 characters.</small></label>
       {error && <p className="form-error" role="alert">{error}</p>}

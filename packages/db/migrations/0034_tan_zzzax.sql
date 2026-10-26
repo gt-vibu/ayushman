@@ -1,0 +1,1 @@
+CREATE INDEX "appointments_professional_global_reserved_idx" ON "appointments" USING btree ("professional_user_id","reserved_starts_at","reserved_ends_at") WHERE "appointments"."status" IN ('held', 'pending', 'confirmed', 'checked_in', 'in_progress');

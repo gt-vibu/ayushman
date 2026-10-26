@@ -1,4 +1,4 @@
-import { check, foreignKey, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
+import { boolean, check, foreignKey, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { createdAt, updatedAt, appointmentStatus } from './shared.js';
 import { locations, practiceMemberships, practiceProfessions, practices, users } from './identity.js';
@@ -13,15 +13,21 @@ export const clients = pgTable(
     fullName: varchar('full_name', { length: 160 }).notNull(),
     email: varchar('email', { length: 320 }),
     phone: varchar('phone', { length: 32 }),
+    createdByUserId: uuid('created_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+    mergedIntoClientId: uuid('merged_into_client_id'),
+    mergedAt: timestamp('merged_at', { withTimezone: true }),
+    mergedByUserId: uuid('merged_by_user_id').references(() => users.id, { onDelete: 'set null' }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (table) => [
-    check('clients_contact_required_check', sql`${table.email} IS NOT NULL OR ${table.phone} IS NOT NULL`),
     index('clients_practice_email_idx').on(table.practiceId, sql`lower(${table.email})`),
     index('clients_practice_phone_idx').on(table.practiceId, table.phone),
     uniqueIndex('clients_id_practice_uq').on(table.id, table.practiceId),
     uniqueIndex('clients_practice_user_uq').on(table.practiceId, table.userId).where(sql`${table.userId} IS NOT NULL`),
+    index('clients_practice_merge_idx').on(table.practiceId, table.mergedIntoClientId),
+    foreignKey({ name: 'clients_merge_target_practice_fk', columns: [table.mergedIntoClientId, table.practiceId], foreignColumns: [table.id, table.practiceId] }).onDelete('restrict'),
+    check('clients_merge_metadata_check', sql`(${table.mergedIntoClientId} IS NULL AND ${table.mergedAt} IS NULL) OR (${table.mergedIntoClientId} IS NOT NULL AND ${table.mergedAt} IS NOT NULL AND ${table.mergedIntoClientId} <> ${table.id})`),
   ],
 );
 
@@ -40,6 +46,9 @@ export const appointments = pgTable(
     endsAt: timestamp('ends_at', { withTimezone: true }).notNull(),
     reservedStartsAt: timestamp('reserved_starts_at', { withTimezone: true }).notNull(),
     reservedEndsAt: timestamp('reserved_ends_at', { withTimezone: true }).notNull(),
+    actualArrivedAt: timestamp('actual_arrived_at', { withTimezone: true }),
+    actualStartedAt: timestamp('actual_started_at', { withTimezone: true }),
+    actualEndedAt: timestamp('actual_ended_at', { withTimezone: true }),
     timezone: varchar('timezone', { length: 64 }).notNull(),
     serviceNameSnapshot: varchar('service_name_snapshot', { length: 160 }).notNull(),
     durationMinutesSnapshot: integer('duration_minutes_snapshot').notNull(),
@@ -47,9 +56,14 @@ export const appointments = pgTable(
     bufferAfterMinutesSnapshot: integer('buffer_after_minutes_snapshot').notNull(),
     priceMinorSnapshot: integer('price_minor_snapshot'),
     currencySnapshot: varchar('currency_snapshot', { length: 3 }).notNull(),
+    isWalkIn: boolean('is_walk_in').notNull().default(false),
+    visitDescription: varchar('visit_description', { length: 1000 }),
+    amountPaidMinor: integer('amount_paid_minor').notNull().default(0),
+    paymentMethod: varchar('payment_method', { length: 24 }),
     status: appointmentStatus('status').notNull().default('confirmed'),
     holdExpiresAt: timestamp('hold_expires_at', { withTimezone: true }),
     clientNote: varchar('client_note', { length: 1000 }),
+    practitionerNote: varchar('practitioner_note', { length: 1000 }),
     cancellationReason: varchar('cancellation_reason', { length: 240 }),
     cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
     cancelledByUserId: uuid('cancelled_by_user_id').references(() => users.id, { onDelete: 'set null' }),
@@ -62,10 +76,14 @@ export const appointments = pgTable(
     check('appointments_reserved_range_check', sql`${table.reservedStartsAt} <= ${table.startsAt} AND ${table.endsAt} <= ${table.reservedEndsAt}`),
     check('appointments_duration_snapshot_check', sql`${table.durationMinutesSnapshot} > 0`),
     check('appointments_duration_matches_snapshot_check', sql`${table.endsAt} = ${table.startsAt} + (${table.durationMinutesSnapshot} * interval '1 minute')`),
+    check('appointments_actual_visit_time_order_check', sql`(${table.actualArrivedAt} IS NULL OR ${table.actualStartedAt} IS NULL OR ${table.actualArrivedAt} <= ${table.actualStartedAt}) AND (${table.actualEndedAt} IS NULL OR (${table.actualStartedAt} IS NOT NULL AND ${table.actualStartedAt} <= ${table.actualEndedAt}))`),
     check('appointments_buffers_snapshot_check', sql`${table.bufferBeforeMinutesSnapshot} >= 0 AND ${table.bufferAfterMinutesSnapshot} >= 0 AND ${table.reservedStartsAt} = ${table.startsAt} - (${table.bufferBeforeMinutesSnapshot} * interval '1 minute') AND ${table.reservedEndsAt} = ${table.endsAt} + (${table.bufferAfterMinutesSnapshot} * interval '1 minute')`),
     check('appointments_price_snapshot_check', sql`${table.priceMinorSnapshot} IS NULL OR ${table.priceMinorSnapshot} >= 0`),
+    check('appointments_payment_values_check', sql`${table.amountPaidMinor} >= 0 AND (${table.paymentMethod} IS NULL OR ${table.paymentMethod} IN ('cash','upi','card','bank_transfer','insurance','other'))`),
     check('appointments_cancel_metadata_check', sql`(${table.status} = 'cancelled' AND ${table.cancelledAt} IS NOT NULL) OR (${table.status} <> 'cancelled' AND ${table.cancelledAt} IS NULL)`),
     index('appointments_professional_time_idx').on(table.professionalUserId, table.status, table.startsAt),
+    index('appointments_professional_global_reserved_idx').on(table.professionalUserId, table.reservedStartsAt, table.reservedEndsAt)
+      .where(sql`${table.status} IN ('held', 'pending', 'confirmed', 'checked_in', 'in_progress')`),
     index('appointments_practice_professional_reserved_idx').on(table.practiceId, table.professionalUserId, table.reservedStartsAt),
     index('appointments_practice_time_idx').on(table.practiceId, table.status, table.startsAt),
     index('appointments_location_time_idx').on(table.locationId, table.startsAt),

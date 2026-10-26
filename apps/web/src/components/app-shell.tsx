@@ -1,19 +1,18 @@
 'use client';
 
 import Link from 'next/link';
+import { SpaLink } from '@/components/spa-link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Activity, CalendarDays, ClipboardList, FileText, LayoutDashboard,
   Clock3, Leaf, MapPin, Menu, Search, Settings, Users, WalletCards, BriefcaseBusiness, X, Moon, Sun, ChevronDown, UserRound, LogOut,
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { usePractice } from '@/lib/practice-context';
-import { api } from '@/lib/api';
 import { AppointmentNotifications } from '@/components/appointment-notifications';
 import { Select } from '@/components/ui/select';
 import { BrandLoader } from '@/components/ui/branded-loader';
-import { appointmentsQuery } from '@/lib/url';
 
 const navigation = [
   { group: 'OVERVIEW', label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, permission: 'practice.read' },
@@ -27,7 +26,7 @@ const navigation = [
   { group: 'MANAGE', label: 'Billing', href: '/billing', icon: WalletCards, permission: 'billing.read' },
   { group: 'MANAGE', label: 'Records', href: '/records', icon: FileText, permission: 'records.read' },
   { group: 'MANAGE', label: 'Reports', href: '/reports', icon: Activity, permission: 'reports.read', later: true },
-  { group: 'MANAGE', label: 'Settings', href: '/settings', icon: Settings, permission: 'practice.read' },
+  { group: 'MANAGE', label: 'Settings', href: '/settings', icon: Settings, permission: 'practice.update', alternatePermission: 'booking_policy.manage' },
 ];
 
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
@@ -37,14 +36,21 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
 function PracticeFrame({ children }: Readonly<{ children: ReactNode }>) {
   const pathname = usePathname();
   const router = useRouter();
-  const { session, practice, branches, professions, permissions, branchId, setBranchId, logout } = usePractice();
+  const { session, practice, branches, professions, permissions, permissionsReady, branchId, setBranchId, logout } = usePractice();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [darkMode, setDarkMode] = useState(false);
-  const warmedRoutes = useRef(new Set<string>());
   const activeBranch = branches.find((branch) => branch.id === branchId);
   const activeMembership = session.practices.find((item) => item.practiceId === practice.id);
   const canViewEveryBranch = activeMembership?.roles.some((role) => role === 'owner' || role === 'admin') ?? false;
+  const route = navigation.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
+  const auxiliaryRoutePermission = pathname.startsWith('/follow-ups') || pathname.startsWith('/consultations') || pathname.startsWith('/cancellation-requests')
+    ? 'appointments.read'
+    : pathname.startsWith('/policy-overrides') ? 'booking_policy.read'
+    : pathname === '/setup' ? 'practice.update'
+    : null;
+  const routePermissions = route ? [route.permission, ...('alternatePermission' in route && route.alternatePermission ? [route.alternatePermission] : [])] : auxiliaryRoutePermission ? [auxiliaryRoutePermission] : [];
+  const routeAllowed = routePermissions.length === 0 || routePermissions.some((permission) => permissions[permission]);
 
   useEffect(() => {
     const enabled = window.localStorage.getItem('ayushman-theme') === 'dark';
@@ -66,6 +72,15 @@ function PracticeFrame({ children }: Readonly<{ children: ReactNode }>) {
     };
   }, [mobileOpen]);
 
+  useEffect(() => {
+    if (!permissionsReady || !route || routeAllowed) return;
+    const allowedDestination = navigation.find((item) => {
+      const alternatives = 'alternatePermission' in item && item.alternatePermission ? [item.alternatePermission] : [];
+      return !item.later && [item.permission, ...alternatives].some((permission) => permissions[permission]);
+    })?.href;
+    router.replace(allowedDestination ?? '/dashboard', { scroll: false });
+  }, [pathname, permissions, permissionsReady, route, routeAllowed, router]);
+
   function toggleTheme() {
     const enabled = !darkMode;
     setDarkMode(enabled);
@@ -78,62 +93,10 @@ function PracticeFrame({ children }: Readonly<{ children: ReactNode }>) {
     if (search.trim()) router.push(`/clients?q=${encodeURIComponent(search.trim())}`);
   }
 
-  const warmRoute = useCallback((href: string) => {
-    router.prefetch(href);
-    if (warmedRoutes.current.has(href)) return;
-    warmedRoutes.current.add(href);
-    if (process.env.NODE_ENV === 'development') {
-      void fetch(href, { credentials: 'same-origin', cache: 'no-store' }).then((response) => response.arrayBuffer()).catch(() => undefined);
-    }
-    const scope = branchId ? `?locationId=${encodeURIComponent(branchId)}` : '';
-    const root = `/practices/${encodeURIComponent(practice.id)}`;
-    const dashboardFrom = new Date(); dashboardFrom.setHours(0, 0, 0, 0); dashboardFrom.setDate(dashboardFrom.getDate() - 7);
-    const dashboardTo = new Date(); dashboardTo.setHours(23, 59, 59, 999); dashboardTo.setDate(dashboardTo.getDate() + 14);
-    const dashboardQuery = new URLSearchParams({ from: dashboardFrom.toISOString(), to: dashboardTo.toISOString(), limit: '100' });
-    if (branchId) dashboardQuery.set('locationId', branchId);
-    const routeData: Record<string, string[]> = {
-      '/dashboard': [`${root}/appointments?${dashboardQuery}`, `${root}/services${scope}`, `${root}/staff${scope}`],
-      '/appointments': [`${root}${appointmentsQuery(branchId)}`, `${root}/staff${scope}`],
-      '/calendar': [`${root}${appointmentsQuery(branchId, 7, 100)}`],
-      '/availability': [`${root}/professions`, `${root}/availability/rules${scope}`],
-      '/clients': [`${root}/clients?limit=100`],
-      '/services': [`${root}/services${scope}`, `${root}/staff${scope}`],
-      '/staff': [`${root}/staff${scope}`],
-      '/branches': [`${root}/locations`],
-      '/records': [`${root}/clients?limit=100`, `${root}/records`],
-      '/billing': [`${root}/billing/profile`, `${root}/billing/invoices`],
-      '/settings': [`${root}`, `${root}/booking-policy`],
-    };
-    const requests = (routeData[href] ?? []).map((path) => api(path).catch(() => undefined));
-    void Promise.all(requests).then(() => {
-      if (!requests.length) warmedRoutes.current.delete(href);
-    });
-  }, [branchId, practice.id, router]);
-
-  // Next.js disables router prefetching in development. Request each permitted
-  // route in the background so its page and client chunks compile before the
-  // first click. API data is warmed on hover or touch instead of loading every
-  // screen's data at startup.
-  useEffect(() => {
-    if (process.env.NODE_ENV !== 'development') return;
-    const routes = navigation.filter((item) => permissions[item.permission] && !item.later).map((item) => item.href);
-    let index = 0;
-    let timer = 0;
-    let cancelled = false;
-    const prefetchNext = async () => {
-      const href = routes[index++];
-      if (!href) return;
-      try {
-        const response = await fetch(href, { credentials: 'same-origin', cache: 'no-store' });
-        await response.arrayBuffer();
-      } catch {
-        // Route prewarming is best-effort; normal navigation reports errors.
-      }
-      if (!cancelled) timer = window.setTimeout(prefetchNext, 100);
-    };
-    timer = window.setTimeout(prefetchNext, 300);
-    return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [permissions]);
+  if (route && (!permissionsReady || !routeAllowed)) {
+    return <div className="app-loading" aria-live="polite"><BrandLoader label="Opening your workspace…"/></div>;
+  }
+  if (pathname === '/setup') return <div className="setup-wizard-shell">{children}</div>;
 
   return <div className="app-frame">
     {mobileOpen && <button className="mobile-backdrop" aria-label="Close navigation" onClick={() => setMobileOpen(false)} />}
@@ -144,20 +107,15 @@ function PracticeFrame({ children }: Readonly<{ children: ReactNode }>) {
         <div className="practice-switcher-copy"><strong>{practice.name}</strong><span>{activeBranch?.name ?? 'All branches'}</span></div>
       </div>
       <nav className="side-nav" aria-label="Practice navigation">
-        {navigation.filter((item) => permissions[item.permission]).map(({ group, label, href, icon: Icon, later }, index, visibleNavigation) => {
+        {navigation.filter((item) => permissions[item.permission] || ('alternatePermission' in item && Boolean(item.alternatePermission && permissions[item.alternatePermission]))).map(({ group, label, href, icon: Icon, later }, index, visibleNavigation) => {
           const selected = pathname === href || (href !== '/dashboard' && pathname.startsWith(`${href}/`));
           const clientTerm = professions[0]?.termOverrides.clientPlural;
           const visibleLabel = href === '/clients' && clientTerm ? clientTerm[0].toUpperCase() + clientTerm.slice(1) : label;
-          return <div key={href}>{(index === 0 || visibleNavigation[index - 1].group !== group) && <span className="nav-section-label nav-group-label">{group}</span>}<Link prefetch={false} scroll={false} className={`nav-link ${selected ? 'nav-link-active' : ''}`} href={href} aria-current={selected ? 'page' : undefined} onMouseEnter={() => warmRoute(href)} onFocus={() => warmRoute(href)} onTouchStart={() => warmRoute(href)} onClick={(event) => {
+          return <div key={href}>{(index === 0 || visibleNavigation[index - 1].group !== group) && <span className="nav-section-label nav-group-label">{group}</span>}<SpaLink prefetch scroll={false} className={`nav-link ${selected ? 'nav-link-active' : ''}`} href={href} aria-current={selected ? 'page' : undefined} onClick={() => {
             setMobileOpen(false);
-            // Keep workspace tab changes in the App Router instead of a
-            // document request, which previously caused a full reload.
-            if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-            event.preventDefault();
-            router.push(href, { scroll: false });
           }}>
             <Icon size={18} strokeWidth={1.8}/><span>{visibleLabel}</span>{later && <span className="nav-soon">Soon</span>}
-          </Link></div>;
+          </SpaLink></div>;
         })}
       </nav>
     </aside>

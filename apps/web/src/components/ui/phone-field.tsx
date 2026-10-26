@@ -35,14 +35,17 @@ export function PhoneField({ value, onChange, required = false, autoComplete = '
 
   function updateCountry(nextCode: string) {
     setCountryCode(nextCode);
-    const nextValue = toE164(nextCode, nationalNumber);
+    const nextCountry = PHONE_COUNTRIES.find((item) => item.code === nextCode) ?? PHONE_COUNTRIES[0];
+    const nextNumber = nationalNumber.slice(0, nextCountry.max);
+    setNationalNumber(nextNumber);
+    const nextValue = toE164(nextCode, nextNumber);
     lastEmittedValue.current = nextValue;
     onChange(nextValue);
     setTouched(true);
   }
 
   function updateNumber(raw: string) {
-    const digits = raw.replace(/\D/g, '').slice(0, 15 - country.dial.replace(/\D/g, '').length);
+    const digits = raw.replace(/\D/g, '').slice(0, country.max);
     setNationalNumber(digits);
     const nextValue = toE164(country.code, digits);
     lastEmittedValue.current = nextValue;
@@ -51,7 +54,7 @@ export function PhoneField({ value, onChange, required = false, autoComplete = '
 
   return <div className="phone-field">
     <Select ariaLabel="Phone country code" value={countryCode} onChange={updateCountry} disabled={disabled} searchPlaceholder="Search countries…" options={PHONE_COUNTRIES.map((item) => ({ value: item.code, label: `${item.name} (${item.dial})`, keywords: `${item.code} ${item.dial}` }))}/>
-    <div className="phone-number-wrap"><span aria-hidden="true">{country.dial}</span><input ref={inputRef} type="tel" inputMode="numeric" pattern="[0-9]*" autoComplete={autoComplete} required={required} disabled={disabled} value={nationalNumber} onChange={(event) => updateNumber(event.target.value)} onBlur={() => setTouched(true)} aria-invalid={Boolean(error && touched)} aria-describedby={error && touched ? 'phone-field-error' : undefined} placeholder={`${country.min} digit number`}/></div>
+    <div className="phone-number-wrap"><span aria-hidden="true">{country.dial}</span><input ref={inputRef} type="tel" inputMode="numeric" pattern={`[0-9]{${country.min},${country.max}}`} minLength={country.min} maxLength={country.max} autoComplete={autoComplete} required={required} disabled={disabled} value={nationalNumber} onChange={(event) => updateNumber(event.target.value)} onBlur={() => setTouched(true)} aria-invalid={Boolean(error && touched)} aria-describedby={error && touched ? 'phone-field-error' : undefined} placeholder={`${country.min === country.max ? country.min : `${country.min}–${country.max}`} digit number`}/></div>
     {error && touched && <small id="phone-field-error" className="field-error" role="alert">{error}</small>}
   </div>;
 }

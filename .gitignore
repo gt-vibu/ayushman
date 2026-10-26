@@ -1,6 +1,8 @@
 .next/
 .next-dev/
 .next-prod/
+.next-codex-local/
+.next-dev-local/
 node_modules/
 .turbo/
 .env*

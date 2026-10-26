@@ -24,6 +24,7 @@ export const appointmentStatus = pgEnum('appointment_status', [
   'checked_in',
   'in_progress',
   'completed',
+  'interrupted',
   'no_show',
   'cancelled',
 ]);
