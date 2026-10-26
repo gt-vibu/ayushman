@@ -39,7 +39,7 @@ export class AvailabilitySetupService {
     await this.requireLocation(practiceId, input.locationId);
     const [assignment] = await this.db.select({ userId: professionalLocations.userId }).from(professionalLocations)
       .innerJoin(professionalProfiles, and(eq(professionalProfiles.practiceProfessionId, professionalLocations.practiceProfessionId), eq(professionalProfiles.userId, professionalLocations.userId)))
-      .where(and(eq(professionalLocations.practiceId, practiceId), eq(professionalLocations.practiceProfessionId, input.practiceProfessionId), eq(professionalLocations.userId, userId), eq(professionalLocations.locationId, input.locationId))).limit(1);
+      .where(and(eq(professionalLocations.practiceId, practiceId), eq(professionalLocations.practiceProfessionId, input.practiceProfessionId), eq(professionalLocations.userId, userId), eq(professionalLocations.locationId, input.locationId), eq(professionalLocations.active, true))).limit(1);
     if (!assignment) throw new NotFoundException('You are not assigned to this profession and location');
     const [practice] = await this.db.select({ timezone: practices.timezone }).from(practices).where(eq(practices.id, practiceId)).limit(1);
     if (practice) {
@@ -112,7 +112,7 @@ export class AvailabilitySetupService {
       if (!profile) throw new NotFoundException('Professional profile not found in this practice');
       if (input.locationId) {
         const [assignment] = await this.db.select({ userId: professionalLocations.userId }).from(professionalLocations)
-          .where(and(eq(professionalLocations.practiceProfessionId, input.practiceProfessionId), eq(professionalLocations.userId, input.professionalUserId), eq(professionalLocations.locationId, input.locationId))).limit(1);
+          .where(and(eq(professionalLocations.practiceProfessionId, input.practiceProfessionId), eq(professionalLocations.userId, input.professionalUserId), eq(professionalLocations.locationId, input.locationId), eq(professionalLocations.active, true))).limit(1);
         if (!assignment) throw new BadRequestException('Professional is not assigned to this branch');
       }
     }
@@ -194,7 +194,7 @@ export class AvailabilitySetupService {
         if (!profile) throw new NotFoundException('Professional profile not found in this practice');
         if (rule.locationId) {
           const [assignment] = await this.db.select({ userId: professionalLocations.userId }).from(professionalLocations)
-            .where(and(eq(professionalLocations.practiceProfessionId, rule.practiceProfessionId), eq(professionalLocations.userId, rule.professionalUserId), eq(professionalLocations.locationId, rule.locationId))).limit(1);
+            .where(and(eq(professionalLocations.practiceProfessionId, rule.practiceProfessionId), eq(professionalLocations.userId, rule.professionalUserId), eq(professionalLocations.locationId, rule.locationId), eq(professionalLocations.active, true))).limit(1);
           if (!assignment) throw new BadRequestException('Professional is not assigned to this branch');
         }
       }

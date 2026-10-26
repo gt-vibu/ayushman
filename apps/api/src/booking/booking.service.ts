@@ -5,7 +5,7 @@ import type { Database } from '@ayushman-v2/db';
 import {
   appointments, appointmentNotifications, auditEvents, availabilityExceptions, availabilityRules, bookingPolicies, clients, customerProfiles,
   idempotencyKeys, locationProfessions, locations, practiceMembershipRoles, practiceMemberships, practiceProfessions,
-  practices, professionalProfiles, serviceLocations,
+  practices, professionalLocations, professionalProfiles, serviceLocations,
   serviceProfessionals, services, users,
 } from '@ayushman-v2/db/schema';
 import type { GuestPublicBookingInput, PublicAvailabilityQuery, PublicBookingHoldInput, PublicBookingInput, PublicDirectoryQuery } from '@ayushman-v2/contracts';
@@ -248,6 +248,7 @@ export class BookingService implements OnModuleInit, OnModuleDestroy {
 
     const professionals = await this.db.select({ id: professionalProfiles.userId, fullName: users.fullName })
       .from(serviceProfessionals)
+      .innerJoin(professionalLocations, and(eq(professionalLocations.practiceProfessionId, service.practiceProfessionId), eq(professionalLocations.userId, serviceProfessionals.professionalUserId), eq(professionalLocations.locationId, location.id), eq(professionalLocations.active, true)))
       .innerJoin(professionalProfiles, and(eq(professionalProfiles.userId, serviceProfessionals.professionalUserId), eq(professionalProfiles.practiceProfessionId, service.practiceProfessionId)))
       .innerJoin(practiceMemberships, and(eq(practiceMemberships.practiceId, practiceId), eq(practiceMemberships.userId, professionalProfiles.userId), eq(practiceMemberships.status, 'active')))
       .innerJoin(users, and(eq(users.id, professionalProfiles.userId), isNull(users.disabledAt)))

@@ -1,0 +1,1 @@
+ALTER TABLE "professional_locations" ADD COLUMN "active" boolean DEFAULT true NOT NULL;

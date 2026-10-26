@@ -66,6 +66,7 @@ export const professionalLocations = pgTable(
     userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
     locationId: uuid('location_id').notNull().references(() => locations.id, { onDelete: 'cascade' }),
     isPrimary: boolean('is_primary').notNull().default(false),
+    active: boolean('active').notNull().default(true),
     createdAt: createdAt(),
   },
   (table) => [

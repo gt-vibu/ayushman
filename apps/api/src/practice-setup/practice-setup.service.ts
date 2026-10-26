@@ -236,7 +236,7 @@ export class PracticeSetupService {
       profilesByUser.set(profile.userId, profiles);
     }
     const profileLocationRows = await this.db.select({ userId: professionalLocations.userId, professionId: professionalLocations.practiceProfessionId, locationId: professionalLocations.locationId })
-      .from(professionalLocations).where(eq(professionalLocations.practiceId, practiceId));
+      .from(professionalLocations).where(and(eq(professionalLocations.practiceId, practiceId), eq(professionalLocations.active, true)));
     const profileLocationsByKey = new Map<string, string[]>();
     for (const row of profileLocationRows) {
       const key = `${row.userId}:${row.professionId}`;
@@ -434,15 +434,20 @@ export class PracticeSetupService {
         target: [professionalProfiles.practiceProfessionId, professionalProfiles.userId],
         set: { headline: input.headline, bio: input.bio, profileAttributes: input.profileAttributes, publicProfile: input.publicProfile, updatedAt: new Date() },
       }).returning();
-      await tx.delete(professionalLocations).where(and(
+      // Keep rows referenced by appointment history so restrictive FKs remain valid.
+      // Deactivated assignments are excluded from availability and staff profile reads.
+      await tx.update(professionalLocations).set({ active: false, isPrimary: false }).where(and(
         eq(professionalLocations.practiceId, practiceId),
         eq(professionalLocations.practiceProfessionId, input.practiceProfessionId),
         eq(professionalLocations.userId, professionalUserId),
       ));
       if (locationsValid.length) {
         await tx.insert(professionalLocations).values(locationsValid.map((locationId, index) => ({
-          practiceProfessionId: input.practiceProfessionId, practiceId, userId: professionalUserId, locationId, isPrimary: index === 0,
-        }))).onConflictDoNothing();
+          practiceProfessionId: input.practiceProfessionId, practiceId, userId: professionalUserId, locationId, isPrimary: index === 0, active: true,
+        }))).onConflictDoUpdate({
+          target: [professionalLocations.practiceProfessionId, professionalLocations.userId, professionalLocations.locationId],
+          set: { active: true, isPrimary: sql`excluded.is_primary` },
+        });
       }
       return [created];
     });

@@ -253,6 +253,13 @@
       "when": 1793001632543,
       "tag": "0035_icy_bedlam",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1793036613256,
+      "tag": "0036_living_joystick",
+      "breakpoints": true
     }
   ]
 }
