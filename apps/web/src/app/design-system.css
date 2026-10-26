@@ -298,6 +298,22 @@
 .dark .dashboard-date-group { background: var(--background); color: var(--foreground); border-color: var(--border); }
 [data-theme='dark'] .dashboard-date-group > h4 span,
 .dark .dashboard-date-group > h4 span { background: var(--muted); color: var(--muted-foreground); }
+[data-theme='dark'] .follow-up-card,
+.dark .follow-up-card { background: var(--card); color: var(--foreground); border-color: var(--border); }
+[data-theme='dark'] .follow-up-card h3,
+.dark .follow-up-card h3 { color: var(--foreground); }
+[data-theme='dark'] .follow-up-card > div:first-child p,
+.dark .follow-up-card > div:first-child p { color: var(--muted-foreground); }
+[data-theme='dark'] .follow-up-form,
+.dark .follow-up-form { border-color: var(--border); }
+[data-theme='dark'] .follow-up-form input,
+[data-theme='dark'] .follow-up-form textarea,
+.dark .follow-up-form input,
+.dark .follow-up-form textarea { background: var(--background); color: var(--foreground); border-color: var(--border); }
+[data-theme='dark'] .follow-up-slot-area button,
+.dark .follow-up-slot-area button { background: var(--background); color: var(--foreground); border-color: var(--border); }
+[data-theme='dark'] .follow-up-slot-area button.selected,
+.dark .follow-up-slot-area button.selected { background: color-mix(in srgb, var(--primary) 14%, var(--card)); color: var(--primary); border-color: var(--primary); }
 [data-theme='dark'] .status-badge { background: var(--muted); color: var(--foreground); }
 [data-theme='dark'] .dialog-form input:not([type=checkbox]), [data-theme='dark'] .dialog-form textarea, [data-theme='dark'] .dialog-form select { background: var(--background); color: var(--foreground); }
 [data-theme='dark'] .button-primary { color: var(--primary-foreground); }
