@@ -13,11 +13,13 @@ function serializeDate(value: Date) {
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
 }
 
-export function DatePicker({ value, onChange, min, max, placeholder = 'Choose a date', ariaLabel = 'Choose a date' }: {
+export function DatePicker({ value, onChange, min, max, today, disabledDates, placeholder = 'Choose a date', ariaLabel = 'Choose a date' }: {
   value: string;
   onChange: (value: string) => void;
   min?: string;
   max?: string;
+  today?: string;
+  disabledDates?: string[];
   placeholder?: string;
   ariaLabel?: string;
 }) {
@@ -52,14 +54,14 @@ export function DatePicker({ value, onChange, min, max, placeholder = 'Choose a 
           const date = new Date(month.getFullYear(), month.getMonth(), day);
           const inMonth = date.getMonth() === month.getMonth();
           const isoDate = serializeDate(date);
-          const disabled = !inMonth || Boolean((minDate && date < minDate) || (maxDate && date > maxDate));
+          const disabled = !inMonth || Boolean((minDate && date < minDate) || (maxDate && date > maxDate) || disabledDates?.includes(isoDate));
           const selected = isoDate === value;
           return <button type="button" role="gridcell" key={`${month.getFullYear()}-${month.getMonth()}-${index}`} className={`ui-calendar-day${selected ? ' selected' : ''}${!inMonth ? ' outside' : ''}`} disabled={disabled} aria-label={new Intl.DateTimeFormat(undefined, { dateStyle: 'full' }).format(date)} aria-selected={selected} onClick={() => { onChange(isoDate); setOpen(false); }}>
             {inMonth ? day : ''}
           </button>;
         })}
       </div>
-      <div className="ui-calendar-footer"><button type="button" onClick={() => { const today = new Date(); const iso = serializeDate(today); if ((!minDate || today >= minDate) && (!maxDate || today <= maxDate)) onChange(iso); setOpen(false); }}>Today</button>{value && <button type="button" onClick={() => { onChange(''); setOpen(false); }}>Clear</button>}</div>
+      <div className="ui-calendar-footer"><button type="button" disabled={Boolean(disabledDates?.includes(today ?? serializeDate(new Date())))} onClick={() => { const iso = today ?? serializeDate(new Date()); const todayDate = parseDate(iso); if (todayDate && (!minDate || todayDate >= minDate) && (!maxDate || todayDate <= maxDate) && !disabledDates?.includes(iso)) onChange(iso); setOpen(false); }}>Today</button>{value && <button type="button" onClick={() => { onChange(''); setOpen(false); }}>Clear</button>}</div>
     </Popover.Content></Popover.Portal>
   </Popover.Root>;
 }
