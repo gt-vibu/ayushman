@@ -53,13 +53,14 @@ export function SetupAssistant({ practice, branchId, branches, services, staff }
   // A saved professional profile is the source of truth for this checklist
   // item. Owners can provide services too, and their role labels can differ
   // from hired practitioners even though the profile is active.
-  const activeProviders = staff.filter((member) => member.status === 'active' && (member.professionalProfileIds?.length ?? 0) > 0);
+  const activeProviders = staff.filter((member) => member.status === 'active' && member.professionalProfiles?.some((profile) => profile.locationIds?.includes(branchId)));
   const activeBranch = branches.find((branch) => branch.id === branchId && branch.active);
-  const onlineService = services.find((service) => service.active && service.onlineBookable && service.locationIds?.includes(branchId));
-  const eligibleOnlineProviders = onlineService
-    ? (onlineService.professionalUserIds ?? []).map((id) => staff.find((member) => member.userId === id))
-      .filter((member) => member?.status === 'active' && member.professionalProfileIds?.includes(onlineService.practiceProfessionId))
-    : [];
+  const branchOnlineServices = services.filter((service) => service.active && service.onlineBookable && service.locationIds?.includes(branchId));
+  const onlineService = branchOnlineServices[0];
+  const eligibleOnlineProviders = branchOnlineServices.flatMap((service) =>
+    (service.professionalUserIds ?? []).map((id) => staff.find((member) => member.userId === id))
+      .filter((member) => member?.status === 'active' && member.professionalProfiles?.some((profile) => profile.professionId === service.practiceProfessionId && profile.locationIds?.includes(branchId))),
+  );
   // Availability is its own setup step. Don't make it appear incomplete just
   // because the provider profile or online service assignment is unfinished;
   // those have separate checklist steps. The saved rule must still be a valid
@@ -84,7 +85,7 @@ export function SetupAssistant({ practice, branchId, branches, services, staff }
       icon: Stethoscope,
     },
     {
-      label: !onlineService ? 'Add an active online-bookable service' : !eligibleOnlineProviders.length ? 'Assign a practitioner to the online service' : 'Online service is ready',
+      label: !onlineService ? 'Add an active online-bookable service' : !eligibleOnlineProviders.length ? 'Assign an eligible practitioner to an online service' : 'Online service is ready',
       done: Boolean(onlineService && eligibleOnlineProviders.length && activeBranch),
       href: '/services',
       icon: Stethoscope,

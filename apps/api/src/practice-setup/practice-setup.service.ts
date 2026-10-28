@@ -451,6 +451,9 @@ export class PracticeSetupService {
       }
       return [created];
     });
+    // A new or changed profession/branch assignment changes both public
+    // bookability and the available-provider result. Drop their short caches.
+    await this.invalidatePublicBooking(practiceId);
     return profile;
   }
 
@@ -551,6 +554,13 @@ export class PracticeSetupService {
     const enabled = await this.db.select({ locationId: locationProfessions.locationId }).from(locationProfessions)
       .where(and(eq(locationProfessions.practiceProfessionId, professionId), eq(locationProfessions.practiceId, practiceId), eq(locationProfessions.enabled, true), sql`${locationProfessions.locationId} IN (${sql.join(locationsValid.map((id) => sql`${id}::uuid`), sql`, `)})`));
     if (enabled.length !== locationsValid.length) throw new BadRequestException('The profession must be enabled at every selected branch');
+    const assigned = await this.db.select({ userId: professionalLocations.userId }).from(professionalLocations)
+      .where(and(
+        eq(professionalLocations.practiceId, practiceId), eq(professionalLocations.practiceProfessionId, professionId), eq(professionalLocations.active, true),
+        sql`${professionalLocations.userId} IN (${sql.join(professionals.map((id) => sql`${id}::uuid`), sql`, `)})`,
+        sql`${professionalLocations.locationId} IN (${sql.join(locationsValid.map((id) => sql`${id}::uuid`), sql`, `)})`,
+      ));
+    if (!assigned.length) throw new BadRequestException('Assign at least one selected practitioner to this profession at one of the selected branches before making the service bookable');
   }
 
   private async isOwner(userId: string, practiceId: string): Promise<boolean> {
@@ -564,8 +574,9 @@ export class PracticeSetupService {
     // These cache entries only accelerate public reads. A Redis outage must not
     // turn a successful service save into a failed setup operation.
     await Promise.all([
-      this.redis.del(`ayushman:v3:public-practice:${practiceId}`),
+      this.redis.del(`ayushman:v4:public-practice:${practiceId}`),
       this.redis.incr('ayushman:v4:directory:generation'),
+      this.redis.incr(`ayushman:v2:availability-version:${practiceId}`),
     ]).catch(() => undefined);
   }
 
