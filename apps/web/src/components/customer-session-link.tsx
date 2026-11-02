@@ -82,7 +82,7 @@ export function CustomerSessionLink({ variant = 'header', initialCustomer, onPro
 
   if (state === 'checking') return <div className="booking-account-hint" role="status"><span className="spinner"/>Loading account…</div>;
   if (state === 'customer') return <div className="booking-account-hint"><span>You’re signed in to your customer account.</span><Link href="/customer/account">Open your account <ArrowRight size={14}/></Link></div>;
-  if (state === 'practice') return <div className="booking-account-hint"><span>You’re signed in to a practice account. Practice and customer accounts are separate, so use a customer account to see personal bookings.</span><Link href="/customer/login">Sign in as a customer <ArrowRight size={14}/></Link></div>;
+  if (state === 'practice') return <div className="booking-account-hint"><span>You’re not signed in as a customer yet. A separate practice session is active in this browser. Sign in with your customer account to see personal bookings.</span><Link href="/customer/login">Sign in as a customer <ArrowRight size={14}/></Link></div>;
   if (state === 'unavailable') return <div className="booking-account-hint"><span>We couldn’t check your account right now. Your sign-in may still be active.</span><Link href="/customer/account">Open your account <ArrowRight size={14}/></Link></div>;
   return <div className="booking-account-hint"><span>Sign in to your customer account to see your appointments and shared records.</span><Link href="/customer/login">Customer sign in <ArrowRight size={14}/></Link></div>;
 }
