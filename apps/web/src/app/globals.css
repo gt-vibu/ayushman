@@ -95,7 +95,9 @@ h1,h2,h3{font-family:var(--font-heading),sans-serif}.auth-aside h2 em{font-famil
 .setup-step-form{display:grid;gap:15px;padding-top:24px}
 .setup-step-form h2{margin:0;font-size:20px;letter-spacing:-.03em}
 .setup-step-form>label:not(.check-row),.setup-step-form .form-grid>label{display:grid;gap:6px;font-size:11px;font-weight:650}
-.setup-step-form input:not([type=checkbox]):not([type=radio]),.setup-step-form textarea,.setup-step-form select{width:100%;min-height:40px;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:#fff;color:var(--ink);font:inherit;font-size:12px}
+.setup-step-form input:not([type=checkbox]):not([type=radio]),.setup-step-form textarea,.setup-step-form select{width:100%;min-height:40px;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--card);color:var(--foreground);font:inherit;font-size:12px}
+.setup-step-form input::placeholder,.setup-step-form textarea::placeholder{color:var(--muted-foreground);opacity:1}
+.setup-step-form .phone-field select,.setup-step-form .phone-number-wrap{background:var(--card);color:var(--foreground)}
 .setup-step-form textarea{resize:vertical}
 .setup-step-form label small{color:var(--muted-foreground);font-weight:400}
 .setup-weekdays{display:flex;flex-wrap:wrap;gap:8px}
