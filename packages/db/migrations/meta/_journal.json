@@ -267,6 +267,13 @@
       "when": 1793100000000,
       "tag": "0037_repair_professional_location_active",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1793599405117,
+      "tag": "0038_invoice_reverse_charge",
+      "breakpoints": true
     }
   ]
 }

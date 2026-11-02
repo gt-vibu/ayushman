@@ -106,6 +106,24 @@ export class BillingService {
     if (input.taxMode !== 'none' && supplierAddress.countryCode.toUpperCase() === 'IN' && !profile?.gstin) {
       throw new BadRequestException('A GSTIN is required before charging GST on an Indian invoice');
     }
+    if (input.kind === 'tax_invoice' && supplierAddress.countryCode.toUpperCase() === 'IN' && !profile?.gstin) {
+      throw new BadRequestException('A GST-registered supplier GSTIN is required for an Indian tax invoice');
+    }
+    if (input.kind === 'tax_invoice' && supplierAddress.countryCode.toUpperCase() === 'IN' && (!supplierAddress.line1 || !supplierAddress.city || !supplierAddress.state || !supplierAddress.postalCode)) {
+      throw new BadRequestException('Complete the supplier business address, including city, State, and postal code, before issuing an Indian tax invoice');
+    }
+    if (input.kind === 'tax_invoice' && supplierAddress.countryCode.toUpperCase() === 'IN' && !input.sacCode && input.lines.some((line) => !line.sacCode)) {
+      throw new BadRequestException('Add the applicable service accounting code (SAC) to every tax-invoice line');
+    }
+    if (input.kind === 'tax_invoice' && input.taxMode === 'igst' && !input.placeOfSupply?.trim()) {
+      throw new BadRequestException('Add the State and code for the place of supply on an inter-State tax invoice');
+    }
+    if (input.kind === 'tax_invoice' && input.recipientGstin && (!input.recipientAddress?.line1 || !input.recipientAddress.city || !input.recipientAddress.state)) {
+      throw new BadRequestException('Add the registered recipient address, city, and State to the tax invoice');
+    }
+    if (input.kind === 'tax_invoice' && input.recipientGstin && input.recipientAddress?.countryCode?.toUpperCase() === 'IN' && input.recipientAddress.stateCode && !/^\d{2}$/.test(input.recipientAddress.stateCode)) {
+      throw new BadRequestException('Use the two-digit GST State code for an Indian registered recipient');
+    }
     const rawLines = input.lines.map((line) => {
       const lineTotalMinor = Math.round(line.quantityMilli * line.unitPriceMinor / 1000);
       return { ...line, lineTotalMinor };
@@ -113,6 +131,12 @@ export class BillingService {
     const subtotalMinor = rawLines.reduce((total, line) => total + line.lineTotalMinor, 0);
     if (input.discountMinor > subtotalMinor) throw new BadRequestException('Discount cannot exceed the invoice subtotal');
     const taxableMinor = subtotalMinor - input.discountMinor;
+    if (input.kind === 'tax_invoice' && practice.currency === 'INR' && supplierAddress.countryCode.toUpperCase() === 'IN' && !input.recipientGstin && taxableMinor >= 5_000_000) {
+      const recipient = input.recipientAddress;
+      if (!recipient?.line1 || !recipient.city || !recipient.state || !/^\d{2}$/.test(recipient.stateCode ?? '') || !recipient.postalCode) {
+        throw new BadRequestException('For an unregistered recipient and taxable value of ₹50,000 or more, enter the recipient address, State, State code, and postal code. The delivery address may match this address.');
+      }
+    }
     let discountRemaining = input.discountMinor;
     const lineRows = rawLines.map((line, lineOrder) => {
       const allocatedDiscount = lineOrder === rawLines.length - 1
@@ -125,7 +149,9 @@ export class BillingService {
     const centralTaxMinor = input.taxMode === 'cgst_sgst' ? Math.floor(taxMinor / 2) : 0;
     const stateTaxMinor = input.taxMode === 'cgst_sgst' ? taxMinor - centralTaxMinor : 0;
     const integratedTaxMinor = input.taxMode === 'igst' ? taxMinor : 0;
-    const totalMinor = taxableMinor + taxMinor;
+    // Reverse-charge tax is the recipient's liability; it must not inflate the
+    // amount the supplier is collecting on this invoice.
+    const totalMinor = taxableMinor + (input.reverseCharge ? 0 : taxMinor);
     if ([subtotalMinor, taxMinor, totalMinor].some((amount) => amount > MAX_AMOUNT_MINOR)) throw new BadRequestException('Invoice total is too large');
 
     const supplierSnapshot = {
@@ -152,13 +178,17 @@ export class BillingService {
           target: [invoiceSequences.practiceId, invoiceSequences.financialYear],
           set: { lastNumber: sql`${invoiceSequences.lastNumber} + 1` },
         }).returning({ lastNumber: invoiceSequences.lastNumber });
-      const invoiceNumber = `${profile?.invoicePrefix || 'INV'}/${financialYear}/${String(sequence.lastNumber).padStart(4, '0')}`;
+      const prefix = profile?.invoicePrefix || 'INV';
+      if (prefix.length > 4 || sequence.lastNumber > 999_999) {
+        throw new BadRequestException('Invoice numbering cannot fit the GST 16-character serial limit. Shorten the invoice prefix or contact support.');
+      }
+      const invoiceNumber = `${prefix}/${financialYear.slice(0, 4)}/${String(sequence.lastNumber).padStart(6, '0')}`;
       const [invoice] = await tx.insert(invoices).values({
         practiceId, clientId: input.clientId, appointmentId: input.appointmentId ?? null, locationId: invoiceLocationId ?? null,
         invoiceNumber, kind: input.kind, currency: practice.currency, issueDate: input.issueDate,
         dueDate: input.dueDate ?? null, supplierSnapshot, recipientSnapshot, placeOfSupply: input.placeOfSupply ?? null,
         sacCode: input.sacCode ?? null, taxMode: input.taxMode, subtotalMinor, discountMinor: input.discountMinor,
-        taxMinor, centralTaxMinor, stateTaxMinor, integratedTaxMinor, totalMinor, notes: input.notes ?? null, issuedByUserId: userId,
+        taxMinor, centralTaxMinor, stateTaxMinor, integratedTaxMinor, reverseCharge: input.reverseCharge, totalMinor, notes: input.notes ?? null, issuedByUserId: userId,
       }).returning();
       await tx.insert(invoiceItems).values(lineRows.map((line) => ({
         practiceId, invoiceId: invoice.id, description: line.description, sacCode: line.sacCode ?? input.sacCode ?? null,

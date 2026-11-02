@@ -12,6 +12,7 @@ export type AddressSnapshot = {
   stateCode?: string;
   postalCode?: string;
   countryCode?: string;
+  deliveryAddress?: string;
 };
 
 export const clientDocuments = pgTable('client_documents', {
@@ -153,6 +154,7 @@ export const invoices = pgTable('invoices', {
   centralTaxMinor: integer('central_tax_minor').notNull().default(0),
   stateTaxMinor: integer('state_tax_minor').notNull().default(0),
   integratedTaxMinor: integer('integrated_tax_minor').notNull().default(0),
+  reverseCharge: boolean('reverse_charge').notNull().default(false),
   totalMinor: integer('total_minor').notNull(),
   amountPaidMinor: integer('amount_paid_minor').notNull().default(0),
   notes: varchar('notes', { length: 1000 }),

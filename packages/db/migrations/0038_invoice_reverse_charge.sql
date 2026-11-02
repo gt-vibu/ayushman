@@ -1,0 +1,1 @@
+ALTER TABLE "invoices" ADD COLUMN "reverse_charge" boolean DEFAULT false NOT NULL;

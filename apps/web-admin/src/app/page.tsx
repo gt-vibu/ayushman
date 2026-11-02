@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
+import Link from 'next/link';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? '/api/v1';
 type AdminSession = { user: { email: string; fullName: string; roles: string[] } };
@@ -65,7 +66,7 @@ export default function AdminHome() {
   if (!session) {
     return <main className="login-shell">
       <section className="login-card">
-        <div className="brand-mark">A</div>
+        <Link href="/" className="brand-link" aria-label="Ayushman platform home"><div className="brand-mark">A</div></Link>
         <p className="eyebrow">AYUSHMAN · PLATFORM</p>
         <h1>Platform administration</h1>
         <p className="subheading">Sign in with a platform administrator account.</p>
@@ -81,7 +82,7 @@ export default function AdminHome() {
   }
 
   return <main className="admin-shell">
-    <aside className="sidebar"><div className="brand-row"><span className="brand-mark small">A</span><span>Ayushman<span className="brand-sub">Platform</span></span></div><div className="nav-label">ADMINISTRATION</div><div className="nav-item active">Overview</div><div className="sidebar-note">Platform permissions are checked by the API on every request.</div><button className="signout" onClick={signOut}>Sign out</button></aside>
+    <aside className="sidebar"><Link href="/" className="brand-row" aria-label="Ayushman platform home"><span className="brand-mark small">A</span><span>Ayushman<span className="brand-sub">Platform</span></span></Link><div className="nav-label">ADMINISTRATION</div><div className="nav-item active">Overview</div><div className="sidebar-note">Platform permissions are checked by the API on every request.</div><button className="signout" onClick={signOut}>Sign out</button></aside>
     <section className="content"><header className="topbar"><div><p className="eyebrow">PLATFORM CONSOLE</p><h1>Good day, {session.user.fullName}</h1></div><div className="account-chip"><span className="avatar">{session.user.fullName.slice(0, 1).toUpperCase()}</span><span>{session.user.email}<small>{session.user.roles.join(' · ')}</small></span></div></header>
       <div className="welcome"><div><p className="eyebrow">SYSTEM OVERVIEW</p><h2>Platform health at a glance</h2><p>Manage Ayushman as a platform without entering any practice workspace.</p></div><button className="refresh" onClick={() => void loadOverview()}>Refresh</button></div>
       <div className="metrics">{[

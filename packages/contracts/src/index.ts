@@ -430,9 +430,12 @@ const InvoiceAddress = z.object({
   line2: cleanText(160).optional(),
   city: cleanText(100).optional(),
   state: cleanText(100).optional(),
+  // This shared address shape is also used for non-Indian billing addresses.
+  // Enforce India's two-digit GST state code only on Indian GST documents.
   stateCode: z.string().trim().max(3).optional(),
   postalCode: postalCode.optional(),
   countryCode: z.string().trim().regex(/^[A-Za-z]{2}$/).transform((value) => value.toUpperCase()).optional(),
+  deliveryAddress: cleanText(500).optional(),
 });
 
 export const BillingProfileInput = z.object({
@@ -441,7 +444,7 @@ export const BillingProfileInput = z.object({
   address: InvoiceAddress.nullable().optional(),
   email: emailAddress.nullable().optional(),
   phone: e164Phone.nullable().optional(),
-  invoicePrefix: z.string().trim().regex(/^[A-Z0-9-]{1,12}$/).optional(),
+  invoicePrefix: z.string().trim().regex(/^[A-Z0-9-]{1,4}$/).optional(),
 }).refine((input) => Object.keys(input).length > 0, 'Provide a billing profile field to update');
 
 export const InvoiceCreateInput = z.object({
@@ -456,7 +459,8 @@ export const InvoiceCreateInput = z.object({
   placeOfSupply: z.string().trim().max(120).optional(),
   sacCode: z.string().trim().regex(/^[0-9A-Z-]{4,12}$/i).optional(),
   taxMode: z.enum(['none', 'cgst_sgst', 'igst']).default('none'),
-  taxRateBps: z.number().int().min(0).max(2800).default(0),
+  taxRateBps: z.number().int().min(0).max(10000).default(0),
+  reverseCharge: z.boolean().default(false),
   discountMinor: z.number().int().min(0).max(1000000000).default(0),
   notes: z.string().trim().max(1000).optional(),
   lines: z.array(z.object({
@@ -465,10 +469,16 @@ export const InvoiceCreateInput = z.object({
     quantityMilli: z.number().int().min(1).max(1000000).default(1000),
     unitPriceMinor: z.number().int().min(0).max(1000000000),
   })).min(1).max(30),
+}).refine((input) => !input.dueDate || input.dueDate >= input.issueDate, {
+  message: 'The due date cannot be earlier than the issue date.', path: ['dueDate'],
 }).refine((input) => (input.taxMode !== 'none') === (input.taxRateBps > 0), {
   message: 'Choose a tax mode and a non-zero rate together, or choose no tax.', path: ['taxRateBps'],
 }).refine((input) => input.kind === 'tax_invoice' || input.taxMode === 'none', {
   message: 'Bill of supply and receipt documents cannot charge GST.', path: ['taxMode'],
+}).refine((input) => input.kind !== 'tax_invoice' || input.taxMode !== 'none', {
+  message: 'A GST tax invoice needs a tax treatment. Use a non-GST invoice or bill of supply where appropriate.', path: ['taxMode'],
+}).refine((input) => !input.reverseCharge || (input.kind === 'tax_invoice' && input.taxMode !== 'none'), {
+  message: 'Reverse charge is only available on a GST tax invoice with a selected tax treatment.', path: ['reverseCharge'],
 });
 
 export const InvoicePaymentInput = z.object({
