@@ -58,7 +58,7 @@ export async function writeWebmDuration(path: string, durationSeconds: number) {
   if (!ebml || ebml.value !== 0x1a45dfa3) throw new Error('Recording has an invalid WebM header');
   const ebmlSize = readEbmlVint(data, ebml.length);
   if (!ebmlSize || ebmlSize.unknown) throw new Error('Recording has an invalid WebM header');
-  let segmentOffset = ebml.length + ebmlSize.length + ebmlSize.value;
+  const segmentOffset = ebml.length + ebmlSize.length + ebmlSize.value;
   const segment = readEbmlVint(data, segmentOffset, true);
   if (!segment || segment.value !== WEBM_SEGMENT_ID) throw new Error('Recording has no WebM segment');
   const segmentSize = readEbmlVint(data, segmentOffset + segment.length);

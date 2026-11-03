@@ -16,14 +16,12 @@ Medical-only records such as prescriptions and diagnoses are outside the appoint
 - Practice membership RBAC is separate from platform superadmin/support RBAC. Custom per-member denies win; only practice owners can change custom overrides or grant the admin role.
 - Sessions use random opaque tokens with hashed server-side storage, Argon2id password hashes, HTTP-only cookies, rate limits, and generic sign-in failures.
 
-## Implemented backend
+## Current implementation status
 
-The current backend provides auth/session, practice profile and profession setup, branches, staff roles and branch assignment, staff invitations, professional profiles, services, recurring hours, exceptions, booking policies, public discovery, availability, public booking, client lookup, and appointment lifecycle routes. Migrations through `0012_famous_silver_samurai.sql` are applied to the local Ayushman database. The database has 33 tables; reference permissions/role grants are seeded, while user and practice data remain empty.
+The current app includes practice/customer authentication, practice setup, team roles and permission overrides, professional profiles, branches, services, schedules, public booking, appointment lifecycle and follow-ups, client history, files and session recordings, invoices/manual payment recording, customer cancellation/rescheduling, in-app notifications, and a basic waitlist capture/staff queue. See `docs/API.md` and `docs/edge-case-requirements.md` for route and scenario status; those status documents are maintained separately from this architecture note.
 
-Use `docs/API.md` for route order and `docs/DATABASE.md` for schema relationships. The generated Swagger UI is mounted by the API app.
+The ignored `rebuild/.env` is the local-only database configuration. Local migrations are applied through `0041_flat_vindicator.sql`; this does not establish the migration state of Neon or any other hosted database. Do not use the local migration command against hosted data without an explicit deployment task.
 
-## Not included in this backend slice
+## External integrations and product boundaries
 
-Automated invitation email, reminders, email notifications, payment processing, client self-service cancellation, and clinical-record modules need separate providers or product decisions. Online booking returns a conflict when prepayment is required but no payment provider exists. The platform superadmin account is created explicitly with the `bootstrap:superadmin` command; credentials are not stored in migrations.
-
-The implementation has passed TypeScript typechecking and Drizzle reports no schema drift. The end-to-end API flow has not yet been smoke-tested against populated demo records; seed data and frontend wiring are the next integration step.
+Email/SMS delivery and payment gateways are not configured. The app can store manual payment entries and in-app notifications; it does not claim that a gateway or external delivery provider is active. Medical-only records such as prescriptions and diagnoses remain profession-specific modules outside the appointment-booking core. Platform superadmin accounts are created explicitly with the `bootstrap:superadmin` command; credentials are not stored in migrations.

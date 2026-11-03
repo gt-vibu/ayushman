@@ -4,6 +4,7 @@ import { BookingController } from './booking.controller.js';
 import { BookingService } from './booking.service.js';
 import { AvailabilitySetupService } from './availability-setup.service.js';
 import { AppointmentManagementService } from './appointment-management.service.js';
+import { WaitlistService } from './waitlist.service.js';
 
-@Module({ imports: [AuthModule], controllers: [BookingController], providers: [BookingService, AvailabilitySetupService, AppointmentManagementService] })
+@Module({ imports: [AuthModule], controllers: [BookingController], providers: [BookingService, AvailabilitySetupService, AppointmentManagementService, WaitlistService] })
 export class BookingModule {}

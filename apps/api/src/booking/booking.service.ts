@@ -648,7 +648,12 @@ export class BookingService implements OnModuleInit, OnModuleDestroy {
 
   private isUniqueViolation(error: unknown): boolean { return this.errorCode(error) === '23505'; }
   private isExclusionViolation(error: unknown): boolean { return this.errorCode(error) === '23P01'; }
-  private errorCode(error: unknown): string | undefined { return typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : undefined; }
+  private errorCode(error: unknown, seen = new Set<unknown>()): string | undefined {
+    if (typeof error !== 'object' || error === null || seen.has(error)) return undefined;
+    seen.add(error);
+    if ('code' in error) return String(error.code);
+    return 'cause' in error ? this.errorCode(error.cause, seen) : undefined;
+  }
 }
 
 function neCancelled() { return sql`${appointments.status} <> 'cancelled'::appointment_status`; }

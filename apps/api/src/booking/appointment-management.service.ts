@@ -2,8 +2,8 @@ import { BadRequestException, ConflictException, ForbiddenException, Inject, Inj
 import { createHash } from 'node:crypto';
 import { and, asc, count, desc, eq, gte, inArray, isNull, lte, ne, or, sql } from '@ayushman-v2/db/drizzle';
 import type { Database } from '@ayushman-v2/db';
-import { appointments, appointmentEvents, appointmentNotifications, auditEvents, bookingPolicies, clients, clientDocuments, customerProfiles, idempotencyKeys, invoices, locations, practices, practiceMembershipRoles, practiceMemberships, serviceLocations, serviceProfessionals, services, sessionRecordings, users } from '@ayushman-v2/db/schema';
-import type { AppointmentListQuery, AppointmentPaymentInput, AppointmentStatusInput, AppointmentStatusCorrectionInput, AppointmentServiceChangeInput, AppointmentReassignmentInput, BulkAppointmentRescheduleInput, BulkRescheduleOptionsInput, ClientAccountLinkInput, ClientListQuery, ClientMergeInput, CreateClientInput, CreateFollowUpInput, ManualAppointmentInput, PublicAvailabilityQuery, UpdateClientInput } from '@ayushman-v2/contracts';
+import { appointments, appointmentNotifications, auditEvents, bookingPolicies, clients, clientRelationships, clientDocuments, customerProfiles, idempotencyKeys, invoices, locations, practices, practiceMembershipRoles, practiceMemberships, serviceLocations, serviceProfessionals, services, sessionRecordings, users } from '@ayushman-v2/db/schema';
+import type { AppointmentListQuery, AppointmentPaymentInput, AppointmentStatusInput, AppointmentStatusCorrectionInput, AppointmentServiceChangeInput, AppointmentReassignmentInput, BulkAppointmentRescheduleInput, BulkRescheduleOptionsInput, ClientAccountLinkInput, ClientDependentInput, ClientListQuery, ClientMergeInput, CreateClientInput, CreateFollowUpInput, ManualAppointmentInput, PublicAvailabilityQuery, UpdateClientInput } from '@ayushman-v2/contracts';
 import { DATABASE } from '../database.module.js';
 import { AuthorizationService } from '../auth/authorization.service.js';
 import { BookingService } from './booking.service.js';
@@ -111,7 +111,7 @@ export class AppointmentManagementService {
         return response;
       });
     } catch (error) {
-      if (typeof error === 'object' && error !== null && 'code' in error && String(error.code) === '23P01') throw new ConflictException('That follow-up time was just booked. Choose another slot');
+      if (this.hasPostgresErrorCode(error, '23P01')) throw new ConflictException('That follow-up time was just booked. Choose another slot');
       throw error;
     }
   }
@@ -297,6 +297,35 @@ export class AppointmentManagementService {
     return updated;
   }
 
+  async listClientDependents(userId: string, practiceId: string, clientId: string, locationId?: string) {
+    await this.authorization.assertPermission({ userId, practiceId, permissionCode: 'clients.read', locationId, ownRecordsAreQueryScoped: true });
+    const [owner] = await this.db.select({ id: clients.id }).from(clients)
+      .where(and(eq(clients.id, clientId), eq(clients.practiceId, practiceId), isNull(clients.mergedIntoClientId))).limit(1);
+    if (!owner) throw new NotFoundException('Client not found in this practice');
+    return this.db.select({ id: clients.id, fullName: clients.fullName, relationship: clientRelationships.relationship, createdAt: clientRelationships.createdAt })
+      .from(clientRelationships).innerJoin(clients, and(eq(clients.id, clientRelationships.dependentClientId), eq(clients.practiceId, clientRelationships.practiceId)))
+      .where(and(eq(clientRelationships.practiceId, practiceId), eq(clientRelationships.responsibleClientId, clientId), isNull(clients.mergedIntoClientId)))
+      .orderBy(asc(clients.fullName));
+  }
+
+  async addClientDependent(userId: string, practiceId: string, clientId: string, input: ClientDependentInput) {
+    if (input.locationId) {
+      const [location] = await this.db.select({ id: locations.id }).from(locations)
+        .where(and(eq(locations.id, input.locationId), eq(locations.practiceId, practiceId), eq(locations.active, true))).limit(1);
+      if (!location) throw new NotFoundException('Branch not found in this practice');
+    }
+    await this.authorization.assertPermission({ userId, practiceId, permissionCode: 'clients.create', locationId: input.locationId, ownRecordsAreQueryScoped: true });
+    return this.db.transaction(async (tx) => {
+      const [owner] = await tx.select({ id: clients.id, mergedIntoClientId: clients.mergedIntoClientId }).from(clients)
+        .where(and(eq(clients.id, clientId), eq(clients.practiceId, practiceId))).for('update').limit(1);
+      if (!owner || owner.mergedIntoClientId) throw new NotFoundException('Active responsible client not found in this practice');
+      const [dependent] = await tx.insert(clients).values({ practiceId, fullName: input.fullName, createdByUserId: userId }).returning({ id: clients.id, fullName: clients.fullName, createdAt: clients.createdAt });
+      await tx.insert(clientRelationships).values({ practiceId, responsibleClientId: clientId, dependentClientId: dependent.id, relationship: input.relationship, createdByUserId: userId });
+      await tx.insert(auditEvents).values({ practiceId, actorUserId: userId, action: 'client.dependent_added', entityType: 'client', entityId: dependent.id, metadata: { responsibleClientId: clientId, relationship: input.relationship } });
+      return { ...dependent, relationship: input.relationship };
+    });
+  }
+
   async mergeClient(userId: string, practiceId: string, sourceClientId: string, input: ClientMergeInput) {
     await this.authorization.assertPermission({ userId, practiceId, permissionCode: 'clients.update' });
     const actorRoles = await this.db.select({ role: practiceMembershipRoles.role }).from(practiceMembershipRoles)
@@ -449,7 +478,7 @@ export class AppointmentManagementService {
         return appointment;
       });
     } catch (error) {
-      if (typeof error === 'object' && error !== null && 'code' in error && String(error.code) === '23P01') throw new ConflictException('This practitioner already has a visit at that time. Pick another time or practitioner.');
+      if (this.hasPostgresErrorCode(error, '23P01')) throw new ConflictException('This practitioner already has a visit at that time. Pick another time or practitioner.');
       throw error;
     }
   }
@@ -603,7 +632,7 @@ export class AppointmentManagementService {
         return { ...updated, serviceName: updated.serviceNameSnapshot, priceMinor: updated.priceMinorSnapshot, currency: updated.currencySnapshot };
       });
     } catch (error) {
-      if (typeof error === 'object' && error !== null && 'code' in error && String(error.code) === '23P01') {
+      if (this.hasPostgresErrorCode(error, '23P01')) {
         throw new ConflictException('The new service duration overlaps another appointment. Keep the original service or resolve the schedule conflict first');
       }
       throw error;
@@ -702,7 +731,7 @@ export class AppointmentManagementService {
     if (rows.length !== ids.length) throw new NotFoundException('One or more appointments could not be found');
     const byId = new Map(rows.map((item) => [item.id, item]));
     const moves = input.moves.map((move) => ({ appointment: byId.get(move.appointmentId)!, startsAt: new Date(move.startsAt), professionalUserId: move.professionalUserId ?? byId.get(move.appointmentId)!.professionalUserId }));
-    for (const { appointment, startsAt, professionalUserId } of moves) {
+    for (const { appointment, startsAt } of moves) {
       await this.authorization.assertPermission({ userId, practiceId, permissionCode: 'appointments.update', locationId: appointment.locationId, resourceOwnerUserId: appointment.professionalUserId });
       if (!['pending', 'confirmed'].includes(appointment.status) || appointment.startsAt <= new Date()) throw new BadRequestException('Only future pending or confirmed appointments can be bulk moved');
       if (!Number.isFinite(startsAt.getTime()) || startsAt <= new Date() || startsAt.getTime() === appointment.startsAt.getTime()) throw new BadRequestException('Choose a different future time for every appointment');
@@ -747,7 +776,7 @@ export class AppointmentManagementService {
         return { moved: updated.length, appointments: updated };
       });
     } catch (error) {
-      if (typeof error === 'object' && error !== null && 'code' in error && String(error.code) === '23P01') throw new ConflictException('One of those times was just booked. Review available times and try again.');
+      if (this.hasPostgresErrorCode(error, '23P01')) throw new ConflictException('One of those times was just booked. Review available times and try again.');
       throw error;
     }
   }
@@ -794,7 +823,7 @@ export class AppointmentManagementService {
         return updated;
       });
     } catch (error) {
-      if (typeof error === 'object' && error !== null && 'code' in error && String(error.code) === '23P01') throw new ConflictException('The selected time was just booked. The original appointment is unchanged. Choose another time.');
+      if (this.hasPostgresErrorCode(error, '23P01')) throw new ConflictException('The selected time was just booked. The original appointment is unchanged. Choose another time.');
       throw error;
     }
   }
@@ -873,7 +902,7 @@ export class AppointmentManagementService {
         return updated;
       });
     } catch (error) {
-      if (typeof error === 'object' && error !== null && 'code' in error && String(error.code) === '23P01') throw new ConflictException('That time was just booked. Choose another slot.');
+      if (this.hasPostgresErrorCode(error, '23P01')) throw new ConflictException('That time was just booked. Choose another slot.');
       throw error;
     }
   }
@@ -887,6 +916,13 @@ export class AppointmentManagementService {
       await tx.insert(auditEvents).values({ practiceId: appointment.practiceId, actorUserId: actorId, action, entityType: 'appointment', entityId: appointment.id, metadata: { reason: reason?.trim() || null } });
       return updated;
     });
+  }
+
+  private hasPostgresErrorCode(error: unknown, expectedCode: string, seen = new Set<unknown>()): boolean {
+    if (typeof error !== 'object' || error === null || seen.has(error)) return false;
+    seen.add(error);
+    if ('code' in error && String(error.code) === expectedCode) return true;
+    return 'cause' in error && this.hasPostgresErrorCode(error.cause, expectedCode, seen);
   }
 
 }

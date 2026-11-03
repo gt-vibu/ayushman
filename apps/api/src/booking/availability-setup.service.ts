@@ -5,7 +5,7 @@ import { appointments, availabilityExceptions, availabilityRules, bookingPolicie
 import type { AvailabilityBatchInput, AvailabilityExceptionInput, AvailabilityExceptionQuery, BookingPolicyInput, ProfessionalScheduleInput } from '@ayushman-v2/contracts';
 import { DATABASE } from '../database.module.js';
 import { AuthorizationService } from '../auth/authorization.service.js';
-import { addLocalDays, localDateTime, localNowDate } from './time.js';
+import { localDateTime, localNowDate } from './time.js';
 
 @Injectable()
 export class AvailabilitySetupService {

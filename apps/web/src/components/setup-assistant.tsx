@@ -31,11 +31,16 @@ type Props = {
   branches: Branch[];
   services: Service[];
   staff: StaffMember[];
+  permissions: Record<string, boolean>;
 };
 
-export function SetupAssistant({ practice, branchId, branches, services, staff }: Props) {
+export function SetupAssistant({ practice, branchId, branches, services, staff, permissions }: Props) {
   const [rules, setRules] = useState<AvailabilityRule[] | null>(null);
   useEffect(() => {
+    if (!permissions['availability.manage']) {
+      setRules([]);
+      return;
+    }
     let active = true;
     const query = branchId ? `?locationId=${encodeURIComponent(branchId)}` : '';
     api<AvailabilityRule[]>(practicePath(practice.id, `/availability/rules${query}`))
@@ -48,7 +53,7 @@ export function SetupAssistant({ practice, branchId, branches, services, staff }
     return () => {
       active = false;
     };
-  }, [practice.id, branchId]);
+  }, [practice.id, branchId, permissions]);
 
   // A saved professional profile is the source of truth for this checklist
   // item. Owners can provide services too, and their role labels can differ
@@ -77,38 +82,45 @@ export function SetupAssistant({ practice, branchId, branches, services, staff }
       done: Boolean(activeBranch),
       href: '/branches',
       icon: Building2,
+      permission: 'locations.manage',
     },
     {
       label: 'Assign an active practitioner profile',
       done: activeProviders.length > 0,
       href: '/staff',
       icon: Stethoscope,
+      permission: 'staff.manage',
     },
     {
       label: !onlineService ? 'Add an active online-bookable service' : !eligibleOnlineProviders.length ? 'Assign an eligible practitioner to an online service' : 'Online service is ready',
       done: Boolean(onlineService && eligibleOnlineProviders.length && activeBranch),
       href: '/services',
       icon: Stethoscope,
+      permission: 'services.manage',
     },
     {
       label: 'Set provider availability',
       done: hasProviderSchedule,
       href: '/availability',
       icon: CalendarClock,
+      permission: 'availability.manage',
     },
     {
       label: 'Turn on online booking',
       done: practice.publicBookingEnabled,
       href: '/settings',
       icon: CalendarClock,
+      permission: 'booking_policy.manage',
     },
     {
       label: 'Complete a practitioner profile',
       done: activeProviders.some((member) => member.professionalProfiles?.some((profile) => profile.headline || profile.bio)),
       href: '/staff',
       icon: UserRound,
+      permission: 'staff.manage',
     },
-  ];
+  ].filter((step) => permissions[step.permission]);
+  if (!steps.length) return null;
   const completedCount = steps.filter((step) => step.done).length;
   const nextStep = steps.find((step) => !step.done);
 

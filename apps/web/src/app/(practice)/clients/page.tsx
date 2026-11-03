@@ -48,11 +48,17 @@ export default function ClientsPage() {
 type ClientFile = { id: string; originalName: string; category: string; description: string | null; customerVisible: boolean; createdAt: string; sizeBytes: number };
 type ClientInvoice = { id: string; invoiceNumber: string; status: string; currency: string; issueDate: string; totalMinor: number; amountPaidMinor: number; clientId: string };
 type ClientRecording = { id: string; status: string; sharingStatus: string; durationSeconds: number | null; createdAt: string };
-type ClientHistoryTab = 'overview' | 'visits' | 'files' | 'invoices';
+type ClientHistoryTab = 'overview' | 'dependents' | 'visits' | 'files' | 'invoices';
+type ClientDependent = { id: string; fullName: string; relationship: string; createdAt: string };
 
 function ClientHistoryDialog({ client, practiceId, timezone, userId, branchId, permissions, onClose }: { client: Client; practiceId: string; timezone: string; userId: string; branchId: string; permissions: Record<string, boolean>; onClose: () => void }) {
   const [tab, setTab] = useState<ClientHistoryTab>('overview');
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [dependents, setDependents] = useState<ClientDependent[]>([]);
+  const [dependentName, setDependentName] = useState('');
+  const [dependentRelationship, setDependentRelationship] = useState('parent');
+  const [dependentSaving, setDependentSaving] = useState(false);
+  const [dependentError, setDependentError] = useState('');
   const [files, setFiles] = useState<ClientFile[]>([]);
   const [invoices, setInvoices] = useState<ClientInvoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,6 +70,7 @@ function ClientHistoryDialog({ client, practiceId, timezone, userId, branchId, p
   useEffect(() => {
     let active = true;
     const tasks: Array<Promise<void>> = [];
+    tasks.push(api<ClientDependent[]>(practicePath(practiceId, `/clients/${client.id}/dependents${branchId ? `?locationId=${encodeURIComponent(branchId)}` : ''}`)).then((items) => { if (active) setDependents(items); }).catch((cause: unknown) => { if (active) setErrors((current) => ({ ...current, dependents: cause instanceof Error ? cause.message : 'Could not load dependents.' })); }));
     if (canReadVisits) tasks.push(api<Appointment[]>(practicePath(practiceId, `/appointments?clientId=${encodeURIComponent(client.id)}&limit=200${branchId ? `&locationId=${encodeURIComponent(branchId)}` : ''}`)).then((items) => { if (active) setAppointments(items); }).catch((cause: unknown) => { if (active) setErrors((current) => ({ ...current, visits: cause instanceof Error ? cause.message : 'Could not load visits.' })); }));
     if (canReadFiles) tasks.push(api<ClientFile[]>(practicePath(practiceId, `/records?clientId=${encodeURIComponent(client.id)}${branchId ? `&locationId=${encodeURIComponent(branchId)}` : ''}`)).then((items) => { if (active) setFiles(items); }).catch((cause: unknown) => { if (active) setErrors((current) => ({ ...current, files: cause instanceof Error ? cause.message : 'Could not load files.' })); }));
     if (canReadInvoices) tasks.push(api<ClientInvoice[]>(practicePath(practiceId, '/billing/invoices')).then((items) => { if (active) setInvoices(items.filter((invoice) => invoice.clientId === client.id)); }).catch((cause: unknown) => { if (active) setErrors((current) => ({ ...current, invoices: cause instanceof Error ? cause.message : 'Could not load invoices.' })); }));
@@ -71,8 +78,19 @@ function ClientHistoryDialog({ client, practiceId, timezone, userId, branchId, p
     return () => { active = false; };
   }, [client.id, practiceId, branchId, canReadVisits, canReadFiles, canReadInvoices]);
 
+  async function addDependent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setDependentSaving(true); setDependentError('');
+    try {
+      const created = await api<ClientDependent>(practicePath(practiceId, `/clients/${client.id}/dependents`), { method: 'POST', body: JSON.stringify({ fullName: dependentName, relationship: dependentRelationship, ...(branchId ? { locationId: branchId } : {}) }) });
+      setDependents((items) => [...items, created].sort((a, b) => a.fullName.localeCompare(b.fullName)));
+      setDependentName('');
+    } catch (cause) { setDependentError(cause instanceof Error ? cause.message : 'Could not add this dependent.'); }
+    finally { setDependentSaving(false); }
+  }
+
   const tabs: Array<{ id: ClientHistoryTab; label: string; count?: number }> = [
     { id: 'overview', label: 'Overview' },
+    ...(permissions['clients.create'] ? [{ id: 'dependents' as const, label: 'Dependents', count: dependents.length }] : []),
     ...(canReadVisits ? [{ id: 'visits' as const, label: 'Visits', count: appointments.length }] : []),
     ...(canReadFiles ? [{ id: 'files' as const, label: 'Files', count: files.length }] : []),
     ...(canReadInvoices ? [{ id: 'invoices' as const, label: 'Invoices', count: invoices.length }] : []),
@@ -88,6 +106,7 @@ function ClientHistoryDialog({ client, practiceId, timezone, userId, branchId, p
       <div className="client-history-panel" role="tabpanel">
         {loading && <LoadingState/>}
         {!loading && tab === 'overview' && <div className="client-history-summary">{canReadVisits && <p><CalendarDays size={16}/>{errors.visits ? 'Visits could not load' : `${appointments.length} visit${appointments.length === 1 ? '' : 's'} on record`}</p>}{canReadFiles && <p><FileText size={16}/>{errors.files ? 'Files could not load' : `${files.length} file${files.length === 1 ? '' : 's'} attached`}</p>}{canReadInvoices && <p><ReceiptText size={16}/>{errors.invoices ? 'Invoices could not load' : `${invoices.length} invoice${invoices.length === 1 ? '' : 's'} on record`}</p>}</div>}
+        {!loading && tab === 'dependents' && <section className="client-history-dependents"><p className="field-hint">Add a child or person this client is responsible for. They become a separate client record, so their visits and files stay with the person who received care. This does not create portal access or share records.</p>{errors.dependents ? <ErrorState message={errors.dependents}/> : dependents.length > 0 ? <div className="client-history-list">{dependents.map((dependent) => <article key={dependent.id}><div className="client-history-item-heading"><strong>{dependent.fullName}</strong><span className="client-history-status">{dependent.relationship}</span></div><small>Separate client record · history is stored on this person</small></article>)}</div> : <EmptyState title="No dependents linked" description="Add someone this client schedules or manages care for." icon={Users}/>}<form className="form-stack" onSubmit={(event) => void addDependent(event)}><label>Dependent’s name<input required minLength={2} maxLength={160} value={dependentName} onChange={(event) => setDependentName(event.target.value)}/></label><label>Relationship<select value={dependentRelationship} onChange={(event) => setDependentRelationship(event.target.value)}><option value="parent">Parent</option><option value="guardian">Guardian</option><option value="caregiver">Caregiver</option><option value="other">Other</option></select></label>{dependentError && <p className="form-error" role="alert">{dependentError}</p>}<button className="button button-secondary" disabled={dependentSaving || !permissions['clients.create']}>{dependentSaving ? 'Adding…' : 'Add dependent'}</button></form></section>}
         {!loading && tab === 'visits' && (errors.visits ? <ErrorState message={errors.visits}/> : appointments.length ? <div className="client-history-list">{appointments.map((appointment) => <AppointmentHistoryItem key={appointment.id} appointment={appointment} practiceId={practiceId} userId={userId} dateFormat={dateFormat} moneyFormat={moneyFormat}/>)}</div> : <EmptyState title="No visits yet" description="Appointments and walk-in visits will appear here." icon={CalendarDays}/>)}
         {!loading && tab === 'files' && (errors.files ? <ErrorState message={errors.files}/> : files.length ? <div className="client-history-list">{files.map((file) => <article key={file.id}><div className="client-history-item-heading"><strong><FileText size={15}/>{file.originalName}</strong><span className={`client-history-status ${file.customerVisible ? 'status-shared' : 'status-private'}`}>{file.customerVisible ? 'Shared with client' : 'Private'}</span></div><time>{dateFormat(file.createdAt)}</time><small>{file.category.replaceAll('_', ' ')} · {(file.sizeBytes / 1024).toFixed(0)} KB</small>{file.description && <p>{file.description}</p>}<button type="button" className="button button-secondary client-file-open" onClick={() => window.open(`${API_BASE}${practicePath(practiceId, `/records/files/${file.id}/content?inline=1`)}`, '_blank', 'noopener,noreferrer')}>Open file</button></article>)}</div> : <EmptyState title="No files yet" description="Files attached to this client will appear here." icon={FileText}/>)}
         {!loading && tab === 'invoices' && (errors.invoices ? <ErrorState message={errors.invoices}/> : invoices.length ? <div className="client-history-list">{invoices.map((invoice) => <article key={invoice.id}><div className="client-history-item-heading"><strong>{invoice.invoiceNumber}</strong><span className={`client-history-status status-${invoice.status}`}>{invoice.status.replaceAll('_', ' ')}</span></div><time>Issued {new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: timezone }).format(new Date(`${invoice.issueDate}T12:00:00`))}</time><p>{moneyFormat(invoice.totalMinor, invoice.currency)} total · {moneyFormat(invoice.amountPaidMinor, invoice.currency)} paid</p></article>)}</div> : <EmptyState title="No invoices yet" description="Invoices for this client will appear here." icon={ReceiptText}/>)}

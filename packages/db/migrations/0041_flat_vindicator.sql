@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX "booking_waitlist_active_email_uq" ON "booking_waitlist" USING btree ("practice_id","service_id","location_id","requested_date",lower("email")) WHERE "booking_waitlist"."email" IS NOT NULL AND "booking_waitlist"."status" IN ('waiting', 'contacted');--> statement-breakpoint
+CREATE UNIQUE INDEX "booking_waitlist_active_phone_uq" ON "booking_waitlist" USING btree ("practice_id","service_id","location_id","requested_date","phone") WHERE "booking_waitlist"."phone" IS NOT NULL AND "booking_waitlist"."status" IN ('waiting', 'contacted');

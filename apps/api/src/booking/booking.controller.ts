@@ -2,8 +2,8 @@ import { Body, Controller, Delete, Get, Headers, Ip, Param, Patch, Post, Put, Qu
 import type { AuthenticatedRequest, CustomerAuthenticatedRequest } from '../auth/session.guard.js';
 import { CustomerSessionGuard, SessionGuard } from '../auth/session.guard.js';
 import {
-  AvailabilityBatchInput, AvailabilityExceptionInput, AvailabilityExceptionQuery, BookingPolicyInput, LocationScopeQuery, UpdateClientInput, ClientMergeInput, ClientAccountLinkInput,
-  AppointmentListQuery, AppointmentPaymentInput, AppointmentStatusInput, AppointmentStatusCorrectionInput, AppointmentServiceChangeInput, AppointmentRescheduleInput, AppointmentReassignmentInput, BulkRescheduleOptionsInput, BulkAppointmentRescheduleInput, CustomerAppointmentCancelInput, ClientListQuery, CreateClientInput, ManualAppointmentInput, CreateFollowUpInput, LinkFollowUpInput, GuestPublicBookingInput, ProfessionalScheduleInput, PublicAvailabilityQuery, PublicBookingHoldInput, PublicBookingInput, PublicDirectoryQuery,
+  AvailabilityBatchInput, AvailabilityExceptionInput, AvailabilityExceptionQuery, BookingPolicyInput, BookingWaitlistInput, BookingWaitlistOfferInput, BookingWaitlistStatusInput, LocationScopeQuery, UpdateClientInput, ClientMergeInput, ClientAccountLinkInput,
+  AppointmentListQuery, AppointmentPaymentInput, AppointmentStatusInput, AppointmentStatusCorrectionInput, AppointmentServiceChangeInput, AppointmentRescheduleInput, AppointmentReassignmentInput, BulkRescheduleOptionsInput, BulkAppointmentRescheduleInput, CustomerAppointmentCancelInput, ClientListQuery, ClientDependentInput, CreateClientInput, ManualAppointmentInput, CreateFollowUpInput, LinkFollowUpInput, GuestPublicBookingInput, ProfessionalScheduleInput, PublicAvailabilityQuery, PublicBookingHoldInput, PublicBookingInput, PublicDirectoryQuery,
   type AvailabilityBatchInput as AvailabilityBatchPayload, type AvailabilityExceptionInput as AvailabilityExceptionPayload,
   type AvailabilityExceptionQuery as AvailabilityExceptionQueryPayload,
   type AppointmentListQuery as AppointmentListPayload, type AppointmentStatusInput as AppointmentStatusPayload,
@@ -16,17 +16,19 @@ import {
   type CreateFollowUpInput as CreateFollowUpPayload,
   type LinkFollowUpInput as LinkFollowUpPayload,
   type ClientListQuery as ClientListPayload,
-  type CreateClientInput as CreateClientPayload, type UpdateClientInput as UpdateClientPayload, type ClientMergeInput as ClientMergePayload, type ClientAccountLinkInput as ClientAccountLinkPayload, type ManualAppointmentInput as ManualAppointmentPayload,
+  type CreateClientInput as CreateClientPayload, type ClientDependentInput as ClientDependentPayload, type UpdateClientInput as UpdateClientPayload, type ClientMergeInput as ClientMergePayload, type ClientAccountLinkInput as ClientAccountLinkPayload, type ManualAppointmentInput as ManualAppointmentPayload,
   type BookingPolicyInput as BookingPolicyPayload, type LocationScopeQuery as LocationScopePayload,
   type PublicAvailabilityQuery as PublicAvailabilityPayload, type PublicBookingHoldInput as PublicBookingHoldPayload, type PublicBookingInput as PublicBookingPayload,
   type PublicDirectoryQuery as PublicDirectoryPayload,
   type ProfessionalScheduleInput as ProfessionalSchedulePayload,
   type GuestPublicBookingInput as GuestPublicBookingPayload,
+  type BookingWaitlistInput as BookingWaitlistPayload, type BookingWaitlistOfferInput as BookingWaitlistOfferPayload, type BookingWaitlistStatusInput as BookingWaitlistStatusPayload,
 } from '@ayushman-v2/contracts';
 import { ZodValidationPipe } from '../zod-validation.pipe.js';
 import { AvailabilitySetupService } from './availability-setup.service.js';
 import { BookingService } from './booking.service.js';
 import { AppointmentManagementService } from './appointment-management.service.js';
+import { WaitlistService } from './waitlist.service.js';
 
 @Controller()
 export class BookingController {
@@ -34,6 +36,7 @@ export class BookingController {
     private readonly booking: BookingService,
     private readonly setup: AvailabilitySetupService,
     private readonly appointments: AppointmentManagementService,
+    private readonly waitlist: WaitlistService,
   ) {}
 
   @Get('practices/:practiceId/appointments')
@@ -174,6 +177,18 @@ export class BookingController {
     return this.appointments.updateClient(req.user.id, practiceId, clientId, body);
   }
 
+  @Get('practices/:practiceId/clients/:clientId/dependents')
+  @UseGuards(SessionGuard)
+  listClientDependents(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Param('clientId') clientId: string, @Query(new ZodValidationPipe(LocationScopeQuery)) query: LocationScopePayload) {
+    return this.appointments.listClientDependents(req.user.id, practiceId, clientId, query.locationId);
+  }
+
+  @Post('practices/:practiceId/clients/:clientId/dependents')
+  @UseGuards(SessionGuard)
+  addClientDependent(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Param('clientId') clientId: string, @Body(new ZodValidationPipe(ClientDependentInput)) body: ClientDependentPayload) {
+    return this.appointments.addClientDependent(req.user.id, practiceId, clientId, body);
+  }
+
   @Post('practices/:practiceId/clients/:clientId/merge')
   @UseGuards(SessionGuard)
   mergeClient(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Param('clientId') clientId: string, @Body(new ZodValidationPipe(ClientMergeInput)) body: ClientMergePayload) {
@@ -250,6 +265,54 @@ export class BookingController {
   async slots(@Param('practiceId') practiceId: string, @Query(new ZodValidationPipe(PublicAvailabilityQuery)) query: PublicAvailabilityPayload, @Ip() ip: string) {
     await this.booking.limitPublicRequest(ip);
     return this.booking.availableSlots(practiceId, query);
+  }
+
+  @Post('public/practices/:practiceId/waitlist')
+  async joinWaitlist(@Param('practiceId') practiceId: string, @Body(new ZodValidationPipe(BookingWaitlistInput)) body: BookingWaitlistPayload, @Ip() ip: string) {
+    await this.booking.limitPublicRequest(ip);
+    return this.waitlist.join(practiceId, body);
+  }
+
+  @Get('public/waitlist/:token')
+  async publicWaitlistDetails(@Param('token') token: string, @Ip() ip: string) {
+    await this.booking.limitPublicRequest(ip);
+    return this.waitlist.publicDetails(token);
+  }
+
+  @Delete('public/waitlist/:token')
+  async withdrawWaitlist(@Param('token') token: string, @Ip() ip: string) {
+    await this.booking.limitPublicRequest(ip);
+    return this.waitlist.withdraw(token);
+  }
+
+  @Post('public/waitlist/:token/accept')
+  async acceptWaitlistOffer(@Param('token') token: string, @Ip() ip: string) {
+    await this.booking.limitPublicRequest(ip);
+    return this.waitlist.acceptOffer(token);
+  }
+
+  @Get('practices/:practiceId/waitlist')
+  @UseGuards(SessionGuard)
+  listWaitlist(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Query(new ZodValidationPipe(LocationScopeQuery)) query: LocationScopePayload) {
+    return this.waitlist.list(req.user.id, practiceId, query.locationId);
+  }
+
+  @Patch('practices/:practiceId/waitlist/:entryId')
+  @UseGuards(SessionGuard)
+  updateWaitlistStatus(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Param('entryId') entryId: string, @Body(new ZodValidationPipe(BookingWaitlistStatusInput)) body: BookingWaitlistStatusPayload) {
+    return this.waitlist.updateStatus(req.user.id, practiceId, entryId, body);
+  }
+
+  @Post('practices/:practiceId/waitlist/:entryId/manage-link')
+  @UseGuards(SessionGuard)
+  createWaitlistManageLink(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Param('entryId') entryId: string) {
+    return this.waitlist.createManageLink(req.user.id, practiceId, entryId);
+  }
+
+  @Post('practices/:practiceId/waitlist/:entryId/offer')
+  @UseGuards(SessionGuard)
+  offerWaitlistTime(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Param('entryId') entryId: string, @Body(new ZodValidationPipe(BookingWaitlistOfferInput)) body: BookingWaitlistOfferPayload) {
+    return this.waitlist.offer(req.user.id, practiceId, entryId, body);
   }
 
   @Get('public/directory')

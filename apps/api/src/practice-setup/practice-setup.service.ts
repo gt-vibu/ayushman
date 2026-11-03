@@ -4,7 +4,7 @@ import type { Database } from '@ayushman-v2/db';
 import {
   locations, locationProfessions, practiceMembershipLocations, practiceMembershipRoles,
   membershipPermissionOverrides, permissionCatalog, practiceMemberships, practiceRolePermissionSettings, practiceProfessions, practices, professionalLocations, rolePermissionGrants,
-  appointments, auditEvents, professionalProfiles, serviceLocations, serviceProfessionals, services, users,
+  appointments, auditEvents, clients, professionalProfiles, serviceLocations, serviceProfessionals, services, users,
 } from '@ayushman-v2/db/schema';
 import type {
   CreatePracticeProfessionInput, LocationInput, LocationProfessionInput, PracticeProfessionInput, PracticeUpdateInput,
@@ -32,6 +32,41 @@ export class PracticeSetupService {
     const [practice] = await this.db.select().from(practices).where(eq(practices.id, practiceId)).limit(1);
     if (!practice) throw new NotFoundException('Practice not found');
     return practice;
+  }
+
+  async listBookingImpacts(userId: string, practiceId: string, locationId?: string) {
+    await this.authorization.assertPermission({ userId, practiceId, permissionCode: 'appointments.read', locationId });
+    const rows = await this.db.select({
+      id: appointments.id, clientName: clients.fullName,
+      serviceName: appointments.serviceNameSnapshot, startsAt: appointments.startsAt,
+      status: appointments.status, locationId: appointments.locationId, locationName: locations.name,
+      professionalUserId: appointments.professionalUserId, serviceActive: services.active,
+      locationActive: locations.active, professionEnabled: practiceProfessions.enabled,
+      serviceLocationActive: serviceLocations.active, serviceProfessionalActive: serviceProfessionals.active,
+      professionalLocationActive: professionalLocations.active, membershipStatus: practiceMemberships.status,
+    }).from(appointments)
+      .innerJoin(services, eq(services.id, appointments.serviceId))
+      .innerJoin(locations, eq(locations.id, appointments.locationId))
+      .innerJoin(practiceProfessions, eq(practiceProfessions.id, appointments.practiceProfessionId))
+      .innerJoin(clients, eq(clients.id, appointments.clientId))
+      .leftJoin(serviceLocations, and(eq(serviceLocations.serviceId, appointments.serviceId), eq(serviceLocations.locationId, appointments.locationId)))
+      .leftJoin(serviceProfessionals, and(eq(serviceProfessionals.serviceId, appointments.serviceId), eq(serviceProfessionals.professionalUserId, appointments.professionalUserId)))
+      .leftJoin(professionalLocations, and(eq(professionalLocations.practiceProfessionId, appointments.practiceProfessionId), eq(professionalLocations.userId, appointments.professionalUserId), eq(professionalLocations.locationId, appointments.locationId)))
+      .leftJoin(practiceMemberships, and(eq(practiceMemberships.practiceId, appointments.practiceId), eq(practiceMemberships.userId, appointments.professionalUserId)))
+      .where(and(eq(appointments.practiceId, practiceId), gt(appointments.startsAt, new Date()), inArray(appointments.status, ['pending', 'confirmed', 'checked_in']), ...(locationId ? [eq(appointments.locationId, locationId)] : [])))
+      .orderBy(appointments.startsAt).limit(500);
+    return rows.flatMap((row) => {
+      const reasons = [
+        !row.serviceActive && 'Service is inactive',
+        !row.locationActive && 'Branch is inactive',
+        !row.professionEnabled && 'Profession is inactive',
+        row.serviceLocationActive !== true && 'Service is no longer offered at this branch',
+        row.serviceProfessionalActive !== true && 'Assigned professional is no longer assigned to this service',
+        row.professionalLocationActive !== true && 'Professional is no longer assigned to this branch and profession',
+        row.membershipStatus !== 'active' && 'Professional no longer has active practice access',
+      ].filter((reason): reason is string => Boolean(reason));
+      return reasons.length ? [{ id: row.id, clientName: row.clientName, serviceName: row.serviceName, startsAt: row.startsAt, status: row.status, locationId: row.locationId, locationName: row.locationName, professionalUserId: row.professionalUserId, reasons }] : [];
+    });
   }
 
   async getMyPermissions(userId: string, practiceId: string, locationId?: string) {

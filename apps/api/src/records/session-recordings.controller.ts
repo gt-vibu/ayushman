@@ -1,5 +1,5 @@
 import type { Readable } from 'node:stream';
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, Req, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, ParseUUIDPipe, Post, Req, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
 import type { Request, Response } from 'express';
@@ -40,44 +40,44 @@ export class PracticeSessionRecordingsController {
   constructor(private readonly recordings: SessionRecordingsService) {}
 
   @Get('appointments/:appointmentId')
-  list(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Param('appointmentId') appointmentId: string) {
+  list(@Req() req: AuthenticatedRequest, @Param('practiceId', new ParseUUIDPipe()) practiceId: string, @Param('appointmentId', new ParseUUIDPipe()) appointmentId: string) {
     return this.recordings.listForAppointment(req.user.id, practiceId, appointmentId);
   }
 
   @Post('appointments/:appointmentId')
-  requestConsent(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Param('appointmentId') appointmentId: string) {
+  requestConsent(@Req() req: AuthenticatedRequest, @Param('practiceId', new ParseUUIDPipe()) practiceId: string, @Param('appointmentId', new ParseUUIDPipe()) appointmentId: string) {
     return this.recordings.requestConsent(req.user.id, practiceId, appointmentId);
   }
 
   @Post(':recordingId/start')
-  start(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Param('recordingId') recordingId: string, @Body(new ZodValidationPipe(startInput)) body: z.infer<typeof startInput>) {
+  start(@Req() req: AuthenticatedRequest, @Param('practiceId', new ParseUUIDPipe()) practiceId: string, @Param('recordingId', new ParseUUIDPipe()) recordingId: string, @Body(new ZodValidationPipe(startInput)) body: z.infer<typeof startInput>) {
     return this.recordings.start(req.user.id, practiceId, recordingId, body.mimeType);
   }
 
   @Get(':recordingId/state')
-  state(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Param('recordingId') recordingId: string) {
+  state(@Req() req: AuthenticatedRequest, @Param('practiceId', new ParseUUIDPipe()) practiceId: string, @Param('recordingId', new ParseUUIDPipe()) recordingId: string) {
     return this.recordings.getState(req.user.id, practiceId, recordingId);
   }
 
   @Post(':recordingId/chunks/:index')
   @UseInterceptors(FileInterceptor('chunk', { limits: { fileSize: 5 * 1024 * 1024, files: 1 } }))
-  chunk(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Param('recordingId') recordingId: string,
+  chunk(@Req() req: AuthenticatedRequest, @Param('practiceId', new ParseUUIDPipe()) practiceId: string, @Param('recordingId', new ParseUUIDPipe()) recordingId: string,
     @Param('index', ParseIntPipe) index: number, @UploadedFile() file?: Express.Multer.File) {
     return this.recordings.uploadChunk(req.user.id, practiceId, recordingId, index, file);
   }
 
   @Post(':recordingId/complete')
-  complete(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Param('recordingId') recordingId: string, @Body(new ZodValidationPipe(completeInput)) body: z.infer<typeof completeInput>) {
+  complete(@Req() req: AuthenticatedRequest, @Param('practiceId', new ParseUUIDPipe()) practiceId: string, @Param('recordingId', new ParseUUIDPipe()) recordingId: string, @Body(new ZodValidationPipe(completeInput)) body: z.infer<typeof completeInput>) {
     return this.recordings.complete(req.user.id, practiceId, recordingId, body.durationSeconds);
   }
 
   @Post(':recordingId/share')
-  share(@Req() req: AuthenticatedRequest, @Param('practiceId') practiceId: string, @Param('recordingId') recordingId: string) {
+  share(@Req() req: AuthenticatedRequest, @Param('practiceId', new ParseUUIDPipe()) practiceId: string, @Param('recordingId', new ParseUUIDPipe()) recordingId: string) {
     return this.recordings.share(req.user.id, practiceId, recordingId);
   }
 
   @Get(':recordingId/content')
-  async content(@Req() req: AuthenticatedRequest, @Res() res: Response, @Param('practiceId') practiceId: string, @Param('recordingId') recordingId: string) {
+  async content(@Req() req: AuthenticatedRequest, @Res() res: Response, @Param('practiceId', new ParseUUIDPipe()) practiceId: string, @Param('recordingId', new ParseUUIDPipe()) recordingId: string) {
     return rangeResponse(req, res, await this.recordings.practitionerFile(req.user.id, practiceId, recordingId));
   }
 }
@@ -91,17 +91,17 @@ export class CustomerSessionRecordingsController {
   list(@Req() req: CustomerAuthenticatedRequest) { return this.recordings.listForCustomer(req.user.id); }
 
   @Post(':recordingId/consent')
-  consent(@Req() req: CustomerAuthenticatedRequest, @Param('recordingId') recordingId: string, @Body(new ZodValidationPipe(consentInput)) body: z.infer<typeof consentInput>) {
+  consent(@Req() req: CustomerAuthenticatedRequest, @Param('recordingId', new ParseUUIDPipe()) recordingId: string, @Body(new ZodValidationPipe(consentInput)) body: z.infer<typeof consentInput>) {
     return this.recordings.customerConsent(req.user.id, recordingId, body.accepted);
   }
 
   @Post(':recordingId/withdraw')
-  withdraw(@Req() req: CustomerAuthenticatedRequest, @Param('recordingId') recordingId: string) {
+  withdraw(@Req() req: CustomerAuthenticatedRequest, @Param('recordingId', new ParseUUIDPipe()) recordingId: string) {
     return this.recordings.withdrawCustomer(req.user.id, recordingId);
   }
 
   @Get(':recordingId/content')
-  async content(@Req() req: CustomerAuthenticatedRequest, @Res() res: Response, @Param('recordingId') recordingId: string) {
+  async content(@Req() req: CustomerAuthenticatedRequest, @Res() res: Response, @Param('recordingId', new ParseUUIDPipe()) recordingId: string) {
     return rangeResponse(req, res, await this.recordings.customerFile(req.user.id, recordingId));
   }
 }

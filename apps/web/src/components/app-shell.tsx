@@ -104,7 +104,7 @@ function PracticeFrame({ children }: Readonly<{ children: ReactNode }>) {
       <Link className="brand" href="/dashboard" onClick={() => setMobileOpen(false)}><span className="brand-icon"><Leaf size={20}/></span><span>Ayushman</span></Link>
       <div className="practice-switcher">
         <div className="practice-emblem"><Leaf size={20}/></div>
-        <div className="practice-switcher-copy"><strong>{practice.name}</strong><span>{activeBranch?.name ?? 'All branches'}</span></div>
+        <div className="practice-switcher-copy"><strong>{practice.name}</strong><span>{permissions['locations.read'] ? activeBranch?.name ?? 'All branches' : 'Practice workspace'}</span></div>
       </div>
       <nav className="side-nav" aria-label="Practice navigation">
         {navigation.filter((item) => permissions[item.permission] || ('alternatePermission' in item && Boolean(item.alternatePermission && permissions[item.alternatePermission]))).map(({ group, label, href, icon: Icon, later }, index, visibleNavigation) => {
@@ -126,7 +126,7 @@ function PracticeFrame({ children }: Readonly<{ children: ReactNode }>) {
         <div className="topbar-right">
           <button type="button" className="icon-button theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${darkMode ? 'light' : 'dark'} theme`} title={`Switch to ${darkMode ? 'light' : 'dark'} theme`}>{darkMode ? <Sun size={16}/> : <Moon size={16}/>}</button>
           {permissions['appointments.read'] && <AppointmentNotifications/>}
-          {branches.length ? <div className="branch-context"><MapPin size={15}/><Select ariaLabel="Select branch" value={branchId} onChange={setBranchId} searchPlaceholder="Find a location…" options={[...(canViewEveryBranch ? [{ value: '', label: 'All branches' }] : []), ...branches.map((branch) => ({ value: branch.id, label: branch.name }))]} /></div> : <div className="context-pill"><span className="context-dot"/>{practice.name}</div>}
+          {permissions['locations.read'] && branches.length ? <div className="branch-context"><MapPin size={15}/><Select ariaLabel="Select branch" value={branchId} onChange={setBranchId} searchPlaceholder="Find a location…" options={[...(canViewEveryBranch ? [{ value: '', label: 'All branches' }] : []), ...branches.map((branch) => ({ value: branch.id, label: branch.name }))]} /></div> : <div className="context-pill"><span className="context-dot"/>{practice.name}</div>}
           <details className="account-menu">
             <summary className="top-user" aria-label="Open account menu">
               <span className="avatar avatar-small">{session.user.fullName.slice(0, 1).toUpperCase()}</span>

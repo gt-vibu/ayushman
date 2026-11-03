@@ -12,6 +12,8 @@ import { EmptyState, ErrorState, PageHeader, StatusBadge } from '@/components/ap
 
 type DocumentRow = { id: string; clientId: string; originalName: string; mediaType: string; sizeBytes: number; category: string; description: string | null; customerVisible: boolean; createdAt: string; clientName: string; clientEmail: string | null };
 const categories = ['prescription', 'lab_result', 'report', 'referral', 'consent', 'insurance', 'other'];
+const maxRecordFileBytes = 20 * 1024 * 1024;
+const allowedRecordFileTypes = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
 
 export default function RecordsPage() {
   const { practice, permissions } = usePractice();
@@ -30,9 +32,34 @@ export default function RecordsPage() {
   const { data, loading, error: loadError, reload } = useApiData<DocumentRow[]>(url);
   const rows = (data ?? []).filter((row) => !search || `${row.clientName} ${row.clientEmail ?? ''} ${row.originalName}`.toLowerCase().includes(search.toLowerCase()));
 
+  function chooseFile(candidate: File | undefined) {
+    setError('');
+    setNotice('');
+    if (!candidate) {
+      setFile(null);
+      return;
+    }
+    if (candidate.size > maxRecordFileBytes) {
+      setFile(null);
+      setError('Choose a file that is 20 MiB or smaller.');
+      const input = document.getElementById('record-file') as HTMLInputElement | null;
+      if (input) input.value = '';
+      return;
+    }
+    if (!allowedRecordFileTypes.has(candidate.type)) {
+      setFile(null);
+      setError('Choose a PDF, JPG, PNG, or WebP file.');
+      const input = document.getElementById('record-file') as HTMLInputElement | null;
+      if (input) input.value = '';
+      return;
+    }
+    setFile(candidate);
+  }
+
   async function upload(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(''); setNotice('');
     if (!clientId || !file) { setError('Choose a customer and a file first.'); return; }
+    if (file.size > maxRecordFileBytes || !allowedRecordFileTypes.has(file.type)) { setError('Choose a PDF, JPG, PNG, or WebP file that is 20 MiB or smaller.'); return; }
     const form = new FormData(); form.set('clientId', clientId); form.set('category', category); form.set('description', description); form.set('customerVisible', String(customerVisible)); form.set('file', file);
     setBusy(true);
     try { await api(practicePath(practice.id, '/records/files'), { method: 'POST', body: form }); setFile(null); setDescription(''); const fileInput = document.getElementById('record-file') as HTMLInputElement | null; if (fileInput) fileInput.value = ''; setNotice('File saved to this customer’s record.'); await reload(); }
@@ -42,11 +69,11 @@ export default function RecordsPage() {
   async function remove(id: string) { if (!window.confirm('Remove this file from the customer record?')) return; try { await api(practicePath(practice.id, `/records/files/${id}`), { method: 'DELETE' }); await reload(); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not remove file.'); } }
   function download(id: string, inline = false) { window.open(`${API_BASE}${practicePath(practice.id, `/records/files/${id}/content${inline ? '?inline=1' : ''}`)}`, '_blank', 'noopener,noreferrer'); }
 
-  return <><PageHeader eyebrow="CLIENT RECORDS" title="Records & files" description="Keep reports, prescriptions and shared documents attached to the right customer." action={permissions['records.write'] ? <span className="count-pill">Private storage · up to 20 MB</span> : undefined}/>
+  return <><PageHeader eyebrow="CLIENT RECORDS" title="Records & files" description="Keep reports, prescriptions and shared documents attached to the right customer." action={permissions['records.write'] ? <span className="count-pill">Private storage · up to 20 MiB</span> : undefined}/>
     {permissions['records.write'] && <section className="section-card resource-card records-upload"><h2><UploadCloud size={18}/> Add a customer file</h2><p className="page-description">Only the selected customer and authorized practice staff can access this file.</p><form className="records-form" onSubmit={(event) => void upload(event)}>
       <label>Customer<DropdownSelect required value={clientId} onChange={(event) => setClientId(event.target.value)}><option value="">Select a customer</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.fullName}{client.email ? ` · ${client.email}` : ''}</option>)}</DropdownSelect></label>
       <label>File category<DropdownSelect value={category} onChange={(event) => setCategory(event.target.value)}>{categories.map((item) => <option key={item} value={item}>{item.replace('_', ' ')}</option>)}</DropdownSelect></label>
-      <label className="records-file">File (PDF, JPG, PNG or WebP)<input id="record-file" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(event) => setFile(event.target.files?.[0] ?? null)} required/></label>
+      <label className="records-file">File (PDF, JPG, PNG or WebP · up to 20 MiB)<input id="record-file" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(event) => chooseFile(event.target.files?.[0])} required/></label>
       <label>Description<input maxLength={500} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Optional note for this file"/></label>
       <label className="check-row records-share"><input type="checkbox" checked={customerVisible} onChange={(event) => setCustomerVisible(event.target.checked)}/> Share with customer in their account</label>
       {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="save-success">{notice}</p>}

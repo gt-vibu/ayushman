@@ -31,6 +31,30 @@ export const clients = pgTable(
   ],
 );
 
+// A dependent is still a full client record so appointments, invoices and files
+// remain attached to the person who received the service. This relation records
+// the responsible/contact client without conflating their account identities.
+export const clientRelationships = pgTable(
+  'client_relationships',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    practiceId: uuid('practice_id').notNull().references(() => practices.id, { onDelete: 'cascade' }),
+    responsibleClientId: uuid('responsible_client_id').notNull(),
+    dependentClientId: uuid('dependent_client_id').notNull(),
+    relationship: varchar('relationship', { length: 24 }).notNull(),
+    createdByUserId: uuid('created_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    check('client_relationship_kind_check', sql`${table.relationship} IN ('parent', 'guardian', 'caregiver', 'other')`),
+    check('client_relationship_distinct_check', sql`${table.responsibleClientId} <> ${table.dependentClientId}`),
+    uniqueIndex('client_relationship_pair_uq').on(table.practiceId, table.responsibleClientId, table.dependentClientId),
+    index('client_relationship_dependent_idx').on(table.practiceId, table.dependentClientId),
+    foreignKey({ name: 'client_relationship_responsible_practice_fk', columns: [table.responsibleClientId, table.practiceId], foreignColumns: [clients.id, clients.practiceId] }).onDelete('cascade'),
+    foreignKey({ name: 'client_relationship_dependent_practice_fk', columns: [table.dependentClientId, table.practiceId], foreignColumns: [clients.id, clients.practiceId] }).onDelete('cascade'),
+  ],
+);
+
 export const appointments = pgTable(
   'appointments',
   {
@@ -177,6 +201,48 @@ export const appointmentNotifications = pgTable(
       columns: [table.appointmentId, table.practiceId],
       foreignColumns: [appointments.id, appointments.practiceId],
     }).onDelete('cascade'),
+  ],
+);
+
+export const bookingWaitlist = pgTable(
+  'booking_waitlist',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    practiceId: uuid('practice_id').notNull().references(() => practices.id, { onDelete: 'cascade' }),
+    // Tenant-consistent composite FKs below own cascade behavior for these IDs.
+    // Avoid parallel single-column RESTRICT FKs that can block those cascades.
+    serviceId: uuid('service_id').notNull(),
+    locationId: uuid('location_id').notNull(),
+    preferredProfessionalUserId: uuid('preferred_professional_user_id').references(() => users.id, { onDelete: 'set null' }),
+    customerUserId: uuid('customer_user_id').references(() => users.id, { onDelete: 'set null' }),
+    fullName: varchar('full_name', { length: 160 }).notNull(),
+    email: varchar('email', { length: 320 }),
+    phone: varchar('phone', { length: 32 }),
+    requestedDate: varchar('requested_date', { length: 10 }).notNull(),
+    manageTokenHash: varchar('manage_token_hash', { length: 64 }).notNull(),
+    offeredProfessionalUserId: uuid('offered_professional_user_id').references(() => users.id, { onDelete: 'set null' }),
+    offeredStartsAt: timestamp('offered_starts_at', { withTimezone: true }),
+    offerExpiresAt: timestamp('offer_expires_at', { withTimezone: true }),
+    status: varchar('status', { length: 16 }).notNull().default('waiting'),
+    customerNote: varchar('customer_note', { length: 500 }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    check('booking_waitlist_status_check', sql`${table.status} IN ('waiting', 'contacted', 'offered', 'accepting', 'booked', 'closed', 'withdrawn', 'expired')`),
+    check('booking_waitlist_contact_check', sql`${table.email} IS NOT NULL OR ${table.phone} IS NOT NULL`),
+    check('booking_waitlist_offer_check', sql`(${table.status} IN ('offered', 'accepting') AND ${table.offeredProfessionalUserId} IS NOT NULL AND ${table.offeredStartsAt} IS NOT NULL AND ${table.offerExpiresAt} IS NOT NULL) OR (${table.status} NOT IN ('offered', 'accepting') AND ${table.offeredStartsAt} IS NULL AND ${table.offerExpiresAt} IS NULL)`),
+    uniqueIndex('booking_waitlist_manage_token_uq').on(table.manageTokenHash),
+    index('booking_waitlist_practice_status_date_idx').on(table.practiceId, table.status, table.requestedDate, table.createdAt),
+    index('booking_waitlist_customer_idx').on(table.customerUserId, table.createdAt),
+    uniqueIndex('booking_waitlist_active_email_uq')
+      .on(table.practiceId, table.serviceId, table.locationId, table.requestedDate, sql`lower(${table.email})`)
+      .where(sql`${table.email} IS NOT NULL AND ${table.status} IN ('waiting', 'contacted', 'offered', 'accepting')`),
+    uniqueIndex('booking_waitlist_active_phone_uq')
+      .on(table.practiceId, table.serviceId, table.locationId, table.requestedDate, table.phone)
+      .where(sql`${table.phone} IS NOT NULL AND ${table.status} IN ('waiting', 'contacted', 'offered', 'accepting')`),
+    foreignKey({ name: 'booking_waitlist_service_practice_fk', columns: [table.serviceId, table.practiceId], foreignColumns: [services.id, services.practiceId] }).onDelete('cascade'),
+    foreignKey({ name: 'booking_waitlist_location_practice_fk', columns: [table.locationId, table.practiceId], foreignColumns: [locations.id, locations.practiceId] }).onDelete('cascade'),
   ],
 );
 

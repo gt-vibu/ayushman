@@ -36,6 +36,11 @@ export class PracticeSetupController {
     return this.setup.getMyPermissions(req.user.id, id, query.locationId);
   }
 
+  @Get('booking-impacts')
+  listBookingImpacts(@Req() req: AuthenticatedRequest, @Param('practiceId') id: string, @Query(new ZodValidationPipe(LocationScopeQuery)) query: LocationScopePayload) {
+    return this.setup.listBookingImpacts(req.user.id, id, query.locationId);
+  }
+
   @Patch()
   updatePractice(@Req() req: AuthenticatedRequest, @Param('practiceId') id: string, @Body(new ZodValidationPipe(PracticeUpdateInput)) body: PracticeUpdatePayload) {
     return this.setup.updatePractice(req.user.id, id, body);

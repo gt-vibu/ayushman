@@ -30,7 +30,10 @@ const cleanText = (max: number, min = 0) => z.string().trim().min(min).max(max).
 const emailAddress = z.string().trim().max(320).refine((value) => {
   if (z.email().safeParse(value).success) return true;
   const [localPart, domain, ...extra] = value.split('@');
-  return Boolean(localPart && domain && !extra.length && domain.toLowerCase().endsWith('.test') && domain.length > 5);
+  if (!localPart || !domain || extra.length || !domain.toLowerCase().endsWith('.test') || domain.length <= 5) return false;
+  // Allow reserved `.test` hosts used by local/demo accounts while applying
+  // Zod's regular email validation to the local part and the domain labels.
+  return z.email().safeParse(`${localPart}@${domain.slice(0, -5)}.com`).success;
 }, 'Enter a valid email address');
 const postalCode = cleanText(20).refine((value) => value === '' || /^[\p{L}\p{N}][\p{L}\p{N} -]{0,19}$/u.test(value), 'Use letters, numbers, spaces, or hyphens');
 
@@ -326,6 +329,23 @@ export const PublicBookingHoldInput = z.object({
   startsAt: z.iso.datetime({ offset: true }),
 });
 
+export const BookingWaitlistInput = z.object({
+  serviceId: uuid,
+  locationId: uuid,
+  preferredProfessionalUserId: uuid.optional(),
+  requestedDate: z.iso.date(),
+  fullName: z.string().trim().min(2).max(160),
+  email: emailAddress.optional().or(z.literal('')),
+  phone: e164Phone.optional().or(z.literal('')),
+}).refine((value) => Boolean(value.email || value.phone), 'Provide an email address or phone number so the practice can contact you');
+
+export const BookingWaitlistStatusInput = z.object({ status: z.enum(['contacted', 'booked', 'closed']) });
+export const BookingWaitlistOfferInput = z.object({
+  professionalUserId: uuid,
+  startsAt: z.iso.datetime({ offset: true }),
+  expiresInHours: z.number().int().min(1).max(72).default(24),
+});
+
 export const CreateFollowUpInput = z.object({
   sourceAppointmentId: uuid,
   clientId: uuid,
@@ -399,6 +419,11 @@ export const UpdateClientInput = z.object({
 });
 export const ClientMergeInput = z.object({ targetClientId: uuid, reason: z.string().trim().min(10).max(500) });
 export const ClientAccountLinkInput = z.object({ accountEmail: emailAddress, reason: z.string().trim().min(10).max(500), identityAndConsentVerified: z.literal(true) });
+export const ClientDependentInput = z.object({
+  fullName: z.string().trim().min(2).max(160),
+  relationship: z.enum(['parent', 'guardian', 'caregiver', 'other']),
+  locationId: uuid.optional(),
+});
 
 export const ManualAppointmentInput = z.object({
   clientId: uuid.optional(),
@@ -532,6 +557,9 @@ export type PublicAvailabilityQuery = z.infer<typeof PublicAvailabilityQuery>;
 export type PublicDirectoryQuery = z.infer<typeof PublicDirectoryQuery>;
 export type GeographyOptionsQuery = z.infer<typeof GeographyOptionsQuery>;
 export type PublicBookingInput = z.infer<typeof PublicBookingInput>;
+export type BookingWaitlistInput = z.infer<typeof BookingWaitlistInput>;
+export type BookingWaitlistStatusInput = z.infer<typeof BookingWaitlistStatusInput>;
+export type BookingWaitlistOfferInput = z.infer<typeof BookingWaitlistOfferInput>;
 export type GuestPublicBookingInput = z.infer<typeof GuestPublicBookingInput>;
 export type PublicBookingHoldInput = z.infer<typeof PublicBookingHoldInput>;
 export type CreateFollowUpInput = z.infer<typeof CreateFollowUpInput>;
@@ -551,6 +579,7 @@ export type CreateClientInput = z.infer<typeof CreateClientInput>;
 export type UpdateClientInput = z.infer<typeof UpdateClientInput>;
 export type ClientMergeInput = z.infer<typeof ClientMergeInput>;
 export type ClientAccountLinkInput = z.infer<typeof ClientAccountLinkInput>;
+export type ClientDependentInput = z.infer<typeof ClientDependentInput>;
 export type ManualAppointmentInput = z.infer<typeof ManualAppointmentInput>;
 export type AppointmentPaymentInput = z.infer<typeof AppointmentPaymentInput>;
 export type BillingProfileInput = z.infer<typeof BillingProfileInput>;

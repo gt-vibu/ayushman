@@ -23,6 +23,9 @@
       }
     ],
     "paths": {
+      "next/*": [
+        "./node_modules/next/*"
+      ],
       "@/*": [
         "./src/*"
       ]
@@ -34,7 +37,8 @@
     ".next-codex-local/types/**/*.ts",
     ".next-dev/types/**/*.ts",
     ".next/types/**/*.ts",
-    "next-env.d.ts"
+    "next-env.d.ts",
+    "..\\..\\..\\..\\..\\..\\..\\..\\ayushman-web-admin-next-cache/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"
